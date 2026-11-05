@@ -1,5 +1,7 @@
 # DOSCloud Mini — Dev Containers & Codespaces Talk
 
+Public GitHub repository: **https://github.com/theonemule/doscloud-mini**.
+
 A minimal, **one-screen DOSBox-X browser emulator**, reusing the js-dos 8.4.1 emulator assets and WebSocket IPX adapter from the user's existing DOSCloud implementation.
 
 This is a **portable developer demonstration**, not a public DOSCloud deployment. The application has **no login**, so bind it only to localhost, a trusted private LAN, or the private Codespaces port.

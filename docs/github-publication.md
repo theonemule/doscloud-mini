@@ -1,6 +1,6 @@
 # Public GitHub repository: DOSCloud Mini
 
-Target owner: **theonemule**. Suggested new public repository name: **doscloud-mini**.
+Published public GitHub repository: **https://github.com/theonemule/doscloud-mini** (default branch: `main`).
 
 ## What GitHub will contain
 
@@ -16,24 +16,18 @@ The mounted persistent C: directory is versioned in this repository. Future DOS 
 
 GitHub is version control, **not live filesystem synchronization**. Installing a game into DOSCloud Mini modifies the host's persistent `drive/` immediately; it appears in the remote GitHub repository only after a `git add`, `git commit`, and `git push` from that workspace. Other Codespaces/hosts must `git pull` to see those files. Temporary room guest writes are never committed.
 
-## Publishing from the development server
+## Published and connected
 
-The server has Git and the `gh` CLI but **is not currently signed in to GitHub**. After authenticating as the GitHub owner:
+The repository has been created as **PUBLIC** and the existing source history and full original DOOM shareware C: drive were pushed to `origin/main`. The development server's GitHub CLI authentication is kept locally in an ignored `.runtime/gh-cli/` directory; no credentials are committed.
+
+To push later commits from this already authenticated development server:
 
 ```bash
 cd /var/lib/sandbox-mcp/workspaces/codespaces-game-cloud-talk
-gh auth login
-gh repo create theonemule/doscloud-mini --public --source=. --remote=origin --push
+git push origin main
 ```
 
-Do **not** initialize the GitHub repository with a README or other first commit; the existing local Git repository already has source history. If the public repo has already been created empty through GitHub's web UI, use:
-
-```bash
-git remote add origin https://github.com/theonemule/doscloud-mini.git
-git push -u origin main
-```
-
-The `gh` authentication enables private Git operations when needed; otherwise configure a GitHub credential manager, SSH, or compatible Git credential. Public repo creation/publishing was not performed unless explicitly verified.
+For a fresh clone or another machine, sign in with GitHub CLI or configure your own Git credentials before pushing. The original `drive/` files are included when cloning the repository.
 
 ## When you install or update a game
 
