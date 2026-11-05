@@ -18,8 +18,19 @@ if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
 fi
 
 if gh repo view "$target" >/dev/null 2>&1; then
-  echo "Repository $target already exists. Checking configured remote..."
-  if ! git remote get-url origin >/dev/null 2>&1; then
+  visibility=$(gh repo view "$target" --json visibility --jq '.visibility')
+  if [[ "$visibility" != "PUBLIC" ]]; then
+    echo "Existing repository is $visibility, not PUBLIC. Stop to avoid using the wrong visibility." >&2
+    exit 4
+  fi
+  echo "Existing public repository $target found. Checking origin..."
+  if git remote get-url origin >/dev/null 2>&1; then
+    remote=$(git remote get-url origin)
+    if [[ "$remote" != "https://github.com/$target.git" && "$remote" != "git@github.com:$target.git" ]]; then
+      echo "Origin points to an unexpected repository: $remote" >&2
+      exit 5
+    fi
+  else
     git remote add origin "https://github.com/$target.git"
   fi
   git push -u origin main
