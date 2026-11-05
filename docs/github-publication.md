@@ -8,7 +8,9 @@ Target owner: **theonemule**. Suggested new public repository name: **doscloud-m
 - The real, persistent `drive/` folder (host C: drive): it is no longer ignored by Git. Files installed there appear in `git status` and can be explicitly committed and pushed.
 - Initial publicly distributable drive placeholder (`drive/.gitkeep`) and `drive/README.TXT`.
 
-**Not included by default:** preexisting third-party game packages in the local host C: drive, because rights to redistribute those binaries publicly have not been verified. Existing DOSCloud Mini preview data and files stay intact on the development host. These files can be included in a later commit *only after* confirming permission to distribute them in a public repository.
+**Included:** the original DOS DOOM v1.9 shareware distribution and its installed files in `drive/`, including the original split installer (`DOOMS_19.1`, `DOOMS_19.2`, `DEICE.EXE`, `DOOMS_19.DAT`, `INSTALL.BAT`), the shareware executable and `DOOM1.WAD`, the bundled setup/network utilities, and their manuals/configuration. The `DOOM1.WAD` is the verified v1.9 shareware edition (MD5 `f0cefca49926d00903cf57551d901abe`). DOOM retains its historical id Software shareware license, not the GPL. The rights record is documented in `docs/doom-shareware-notice.md`.
+
+The mounted persistent C: directory is versioned in this repository. Future DOS files and changes made by the host appear in `git status` and can be committed/pushed manually. DOOM shareware does **not** mean arbitrary later games added to the C: drive are redistributable. Review those separately before committing to the public repository.
 
 **Never version:** `.runtime/` (self-signed TLS private key, room hardlink snapshots, temporary server data), guest room overlays (temporary OS directories), `node_modules/`, credentials, development secrets or logs.
 
@@ -35,7 +37,7 @@ The `gh` authentication enables private Git operations when needed; otherwise co
 
 ## When you install or update a game
 
-**Verify public redistribution rights first.** In the project workspace:
+**Verify redistribution rights for each additional game first.** In the project workspace:
 
 ```bash
 git status --short -- drive/

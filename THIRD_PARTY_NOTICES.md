@@ -4,6 +4,6 @@ DOSCloud Mini reuses browser DOSBox-X/js-dos assets and the IPX/remote filesyste
 
 Node dependencies are documented in `package-lock.json`. Refer to upstream package notices for their licenses.
 
-DOS games, WADs, archives, executable installers, game manuals, fonts, and other uploaded media may carry their own copyrights and redistribution conditions. Inclusion in the developer's persistent C: drive **does not** authorize publication on GitHub. Do not publicly commit those files without suitable redistribution rights.
+The persistent DOS drive contains **DOOM shareware v1.9**, including the original DOS shareware installer and installed shareware executable/data files. This is copyrighted id Software game content, not public domain or GPL source code. The original license and permissions must be respected; the DOOM shareware IWAD is redistributable, as affirmed by John Carmack in the Debian copyright record for `doom-wad-shareware`. See `docs/doom-shareware-notice.md` for package provenance, checksum and references.
 
-No third-party DOS game package was intentionally staged for this repository's initial public publication.
+Other DOS games, WADs, installers, modifications, and uploads may carry different copyright and distribution rules. Their presence in the persistent C: drive does not itself authorize public redistribution. Check additional game licenses before future commits.
