@@ -1,0 +1,12 @@
+{
+  "name": "game-cloud-devcontainer-talk",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Portable Game Cloud demo for a Dev Containers and Codespaces talk",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test"
+  }
+}

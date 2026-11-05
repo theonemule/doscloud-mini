@@ -1,0 +1,8 @@
+{
+  "id": "star-tap",
+  "title": "Star Tap",
+  "description": "Tap a bright star as many times as you can before the clock runs out.",
+  "kind": "tap",
+  "durationSeconds": 15,
+  "targetLabel": "STAR"
+}

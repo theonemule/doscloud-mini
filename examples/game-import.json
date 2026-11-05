@@ -1,0 +1,18 @@
+{
+  "id": "cloud-trivia",
+  "title": "Cloud Trivia",
+  "description": "A game package imported directly into the Git-backed catalog.",
+  "kind": "quiz",
+  "questions": [
+    {
+      "prompt": "Who provides the compute for a GitHub Codespace?",
+      "answers": ["Your laptop", "GitHub-hosted infrastructure", "A Git commit"],
+      "correctIndex": 1
+    },
+    {
+      "prompt": "What is kept in source control in this demo?",
+      "answers": ["Active live rooms", "Game JSON definitions", "Player TCP connections"],
+      "correctIndex": 1
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "id": "quick-quiz",
+  "title": "Dev Container Quiz",
+  "description": "A quick interactive quiz about portable developer environments.",
+  "kind": "quiz",
+  "questions": [
+    {
+      "prompt": "Which file defines the dev container?",
+      "answers": ["package.json", "devcontainer.json", "Docker Hub"],
+      "correctIndex": 1
+    },
+    {
+      "prompt": "What holds our active Game Cloud multiplayer rooms?",
+      "answers": ["Git commits", "Server memory", "GitHub Issues"],
+      "correctIndex": 1
+    },
+    {
+      "prompt": "What remains the same when moving to Codespaces?",
+      "answers": ["Laptop hardware", "Repository and dev container definition", "Public IP address"],
+      "correctIndex": 1
+    }
+  ]
+}

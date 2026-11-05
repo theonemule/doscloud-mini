@@ -1,0 +1,22 @@
+{
+  "name": "Game Cloud — Full Stack Development",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "remoteUser": "node",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "Game Cloud",
+      "onAutoForward": "openPreview"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-azuretools.vscode-docker"]
+    }
+  },
+  "postCreateCommand": "npm test",
+  "postStartCommand": "bash .devcontainer/start-app.sh"
+}

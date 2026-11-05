@@ -1,0 +1,18 @@
+# Optional alternate Demo 5: run the same image as a remote Docker service.
+# Bind to loopback only. Access from VS Code Remote-SSH port forwarding.
+# For writable game imports, launch with DEMO_UID=$(id -u) DEMO_GID=$(id -g).
+services:
+  gamecloud:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    init: true
+    user: "${DEMO_UID:-1000}:${DEMO_GID:-1000}"
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+    command: ["npm", "run", "dev"]
+    environment:
+      PORT: "3000"
+    ports:
+      - "127.0.0.1:${DEMO_PORT:-3000}:3000"
