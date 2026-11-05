@@ -6,3 +6,6 @@ node_modules/
 coverage/
 *.log
 tmp/
+.runtime/
+# Uploaded games stay in the demo workspace; commit intentionally if desired.
+drive/

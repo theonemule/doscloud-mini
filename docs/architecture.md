@@ -1,72 +1,76 @@
-# Game Cloud Architecture
+# DOSCloud Mini — architecture
 
-## Architectural objective
-Demonstrate a portable, self-bootstrapping **developer** workspace using Docker Dev Containers, GitHub Codespaces and remote VS Code. A small game portal gives continuity across five demos. Avoid databases, production authentication, orchestration platforms and external managed services.
+## Purpose
+A deliberately minimal, browser-first **DOSBox-X / js-dos 8.4.1** emulator application for a talk about portable development. Its emulator assets and IPX browser adapter come from the existing DOSCloud project. It is **not the DOSCloud production app**. No login, DB, catalog, launch cards or permanent room store.
 
-## Diagram
-
+## User interface
 ```text
-                       GitHub repository (versioned source of truth)
-            +-------------------------------------------------------+
-            | .devcontainer/     frontend/public/    games/*.json   |
-            | Dockerfile         API/src/            tests/         |
-            |                    room service                       |
-            +--------------------------+----------------------------+
-                                       |
-               same source + devcontainer definition
-              /                        |                       \
-     LOCAL DOCKER                GITHUB CODESPACES          REMOTE DOCKER HOST
-     VS Code Dev Containers      browser or VS Code        SSH + Dev Containers
-              \                        |                       /
-               +-----------------------+----------------------+
-                                       |
-                  one container / one Node.js process / :3000
-                   +---------------------------------------+
-                   | Web UI (single pane of glass)         |
-                   | /api/games  /api/rooms  /api/health   |
-                   | Room events (SSE) + room actions      |
-                   | static built-in game player          |
-                   +---------------------------------------+
-                      |                              |
-               games/*.json                  in-memory rooms
-            tracked in Git when             not persisted; reset
-           explicitly committed/pushed      when server restarts
++-------------------------------------------------------------+
+| DOSCLOUD mini   [Upload file]  [IPX room] [Fullscreen]  READY |
++-------------------------------------------------------------+
+|                                                             |
+|                        DOSBox-X console                     |
+|                                                             |
+|                    C:\\>                                   |
+|                                                             |
+|                                                             |
++-------------------------------------------------------------+
+               ^ IPX room has right-hand invite drawer
 ```
 
-## Logical components
+- One page, toolbar 46px tall; the emulator occupies the remaining viewport.
+- **Upload file modal:** destination folder, file picker. Ordinary binary upload writes that file to the selected folder of the demo C drive. ZIP upload validates and extracts entries within the selected folder, then synchronizes changed files into the current running emulator.
+- **IPX room modal:** select 2–8 players, click Launch; shows join code, link and QR in a right slide-over. Other players follow that link and get their own running DOS console.
+- **Fullscreen** for the emulator.
 
-1. **Frontend:** static responsive HTML/CSS/vanilla JS portal. Catalog, launch game, import declarative game, create/join room, live lobby. Built-in simple game renderer makes the demo visual and interactive.
-2. **Backend API:** a single Node 22 HTTP process serves static assets and JSON endpoints; validates imports and reports health.
-3. **Game catalog:** `games/*.json` are small declarative packages in the repository. Import writes a new validated manifest under `games/`. A Git commit/push is required to preserve it in GitHub.
-4. **Multiplayer prototype:** in-process room and player state with Server-Sent Events for updates. SSE is sufficient for *lobby presence/score demo*, not a low-latency real-time game networking engine; a production game would generally use WebSockets/authoritative game state.
-5. **Development environment:** root `.devcontainer/devcontainer.json`, Dockerfile, lifecycle script, forwarded TCP port 3000. `demos/01-basic` is deliberately independent and minimal.
-6. **Remote example:** optional `compose.yaml` builds the same Dockerfile and binds the app to loopback on the remote host, avoiding unintended public access.
+## Components and lifecycle
+```text
+                  GitHub repo: source + devcontainer definitions
+                    /                |                  \
+             Local Docker      Codespaces          Remote Docker via SSH
+                    \                |                  /
+                     +----------- Node :3000 -----------+
+                     | static emulator JS/WASM + UI     |
+                     | /api/drive + /api/upload         |
+                     | /api/rooms + /api/rooms/qr       |
+                     | /ws/ipx (room-scoped relay)      |
+                     +----------------------------------+
+                           |                   |
+                     server drive/       ephemeral room state
+                     (single snapshot    and peer tokens in RAM
+                      source for boot)
+                           |
+             +-------------+---------------+
+             |                             |
+       Browser Emulator A            Browser Emulator B
+       DOSBox-X + local C:           DOSBox-X + local C:
+       IPX peer 1 (host)             IPX peer 2 (guest)
+             +------ WebSocket IPX relay --+
+```
 
-## Endpoints / responsibilities
+Each browser creates a **separate running emulator with its own writable in-browser filesystem**. Both download the same initial C: files from the demo server. Their DOS process writes are *not* automatically uploaded or synchronized. The IPX relay forwards game network packets, not the DOS filesystem. Uploading through the toolbar updates the server and the *current* emulator; reload other browsers to get the new snapshot. Shared live filesystem semantics would require a different design.
 
-| Route | Purpose | Persistence |
-|---|---|---|
-| `GET /api/health` | health/smoke check | none |
-| `GET /api/games` | list repository game manifests | filesystem |
-| `POST /api/games/import` | validate and save JSON game package | new local Git-working-tree file |
-| `GET /api/rooms` | list active rooms | RAM |
-| `POST /api/rooms` | create a game room | RAM |
-| `POST /api/rooms/:id/join` | join as a demo player | RAM |
-| `POST /api/rooms/:id/score` | submit a demo score | RAM |
-| `GET /api/rooms/:id/events` | stream room updates via SSE | RAM/live connection |
+## APIs
+| Path | Operation |
+|---|---|
+| `GET /api/health` | health check |
+| `GET /api/drive` | list uploaded C: files |
+| `GET /api/drive/file?path=...` | retrieve file bytes |
+| `POST /api/upload?filename=...&folder=C:\\` | upload file bytes; auto-extract ZIP |
+| `POST /api/rooms` | create IPX room with 2–8 players |
+| `POST /api/rooms/:code/join` | create a guest peer session |
+| `GET /api/rooms/session?token=...` | peer session metadata |
+| `GET /api/rooms/qr?code=...` | QR invitation PNG |
+| `WS /ws/ipx?token=...` | DOSCloud-compatible binary IPX transport |
 
-## Deployment / development views
+Room host announces readiness only after DOSBox-X IPX server startup; guests register through DOSCloud's `sharedNet` adapter. The room relay does not translate DOS game protocols or synchronize filesystem files.
 
-- **Demo 1:** `demos/01-basic`; base Node image; no custom Dockerfile; basic JSON.
-- **Demo 2:** root repo with custom Dockerfile; `postStartCommand` launches the server; `forwardPorts: [3000]`.
-- **Demo 3:** publish this repository to GitHub and create a Codespace; retain port privacy. A Codespace does not automatically sync all uncommitted files back to GitHub.
-- **Demo 4:** desktop VS Code attaches to the **same Codespace**; no Docker Engine required on the local machine.
-- **Demo 5:** remote Linux host with Docker; connect via Remote-SSH, open repo, Reopen in Container. If showing Compose, use `docker compose up --build -d` and attach to the running app container.
-
-## Security and scope
-- Sample has **no authentication** and is a local/private-port development demonstration; do not expose it as an Internet-facing service.
-- Game packages are strictly constrained **JSON data**, not arbitrary executables, scripts or ZIP uploads. No remote code execution in import flow.
-- Limit game package sizes, path traversal, data fields and room count; do not provide shell access through the portal.
-- Do not store secrets in Git; use Codespaces secrets / host environment for future real tokens.
-- Remote Docker TCP socket is not publicly exposed. Prefer VS Code Remote-SSH or Docker-over-SSH.
-- Future upgrade path (not required for talk): authenticated uploads, GitHub API commits, WebSocket networking, asset storage, persistence, observability, production Docker runtime.
+## Security, portability and limitations
+- **This app has no user authentication** per demo requirements. Only run on a trusted host/private LAN or private forwarded port. Invite codes are not strong access control. Do not expose open uploads or guest invitations to the public Internet.
+- Uploaded files may be executables for DOS. Treat content as untrusted and **run only in the browser emulation environment**; never execute them on the host.
+- Server validates DOS paths against traversal, bounds file/ZIP sizes, and stores uploads in a single `drive/` directory. The directory is ignored by Git to prevent accidentally checking in copyrighted binaries.
+- ZIP and file imports are kept in that server's workspace; when moving to another dev machine, initial drive content does not magically migrate unless intentionally copied/versioned.
+- DOSCloud's js-dos 8.4.1 emulator is GPL-2.0. Check reuse and distribution obligations before publishing a public repository.
+- Browser js-dos requires a **secure context** (localhost or HTTPS) for filesystem APIs. LAN demos use development HTTPS with a self-signed certificate; VS Code forwarded localhost also works.
+- No persistence of in-memory rooms on restart. No production isolation, rate limiting, user storage quotas, or authorization.
+- Tested: browser DOS boot, direct upload and ZIP extraction into running emulator, host/guest browser connection with IPX peer IDs 1 and 2, backend binary relay. Full game-to-game IPX networking has **not yet been validated with a particular DOS title**.

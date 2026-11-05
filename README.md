@@ -1,40 +1,47 @@
-# Game Cloud — Dev Containers & GitHub Codespaces Talk
+# DOSCloud Mini — Dev Containers & Codespaces Talk
 
-**Talk:** From Dev Containers to GitHub Codespaces — Build Once. Develop Anywhere.
+A minimal, **one-screen DOSBox-X browser emulator**, reusing the js-dos 8.4.1 emulator assets and WebSocket IPX adapter from the user's existing DOSCloud implementation.
 
-This repository is both the **speaker workspace** and a **tiny, runnable Game Cloud**: a Dots Cloud-inspired microcosm that illustrates portable development rather than attempting to reproduce a full game hosting service.
+This is a **portable developer demonstration**, not a public DOSCloud deployment. The application has **no login**, so bind it only to localhost, a trusted private LAN, or the private Codespaces port.
 
-## Five live demos (not product phases)
+## Single screen
+- **Upload file**: choose any file and a target C: folder (defaults to `C:\\`); a `.zip` is unpacked automatically in that folder. Uploaded files are copied into the current emulator and saved on the dev server.
+- **IPX room**: choose 2–8 players; host starts its own DOSBox-X IPX server. The right-hand drawer shows room code, link and QR code. Each invited player opens an independent browser emulator and gets the same starting C: drive snapshot.
+- **Fullscreen**: expand the emulator.
 
-| Demo | Location | Audience takeaway |
-| --- | --- | --- |
-| 1. Environment as code | Local VS Code + Docker | A tiny `devcontainer.json` defines a reproducible environment. |
-| 2. Custom bootstrap | Local VS Code + Docker | Dockerfile + lifecycle hooks start our Game Cloud development stack. |
-| 3. GitHub Codespaces | Cloud/browser | The same repo and config run in GitHub's hosted development environment. |
-| 4. VS Code desktop | Connected to existing Codespace | Switch clients without moving application files or rebuilding the stack. |
-| 5. Remote Docker host | Remote Linux + Docker over SSH | Re-create the environment on infrastructure you control, then attach VS Code. |
+The app immediately boots into DOS. There is **no catalog, dashboard, authentication, database, or JavaScript quiz/game renderer**.
 
-## App narrative
+## Start in a Dev Container
 
-The GitHub repo acts as our **game vault**: it version-controls the frontend, API, multiplayer prototype, and small declarative game manifests. The container supplies the runtimes and development tools. The Game Cloud page acts as a single place to **browse, launch, import games and start multiplayer rooms**. Active room state is intentionally in memory; no database is required.
+Open the repo root in VS Code and choose **Dev Containers: Reopen in Container**. Port `3000` forwards automatically. Open `http://localhost:3000/` in your local browser. Localhost is a trusted browser context needed by js-dos' virtual filesystem. `npm ci && npm test` validates backend behavior.
 
-## Quick start
-
-Requires Node.js 22+ (or Docker + VS Code Dev Containers).
+## Start directly
 
 ```bash
+npm ci
 npm test
 npm start
-# open http://localhost:3000
+# http://localhost:3000/
 ```
 
-For dev-container bootstrapping, use **Dev Containers: Reopen in Container** on this repository. For the minimal local demo, separately open `demos/01-basic` in VS Code and reopen it in a container.
+**LAN preview requires HTTPS**, because js-dos uses secure-context browser storage APIs. The dev-server preview uses a locally generated development certificate; accept it only if you trust the server.
 
-See:
-- [Talk outline](docs/talk-outline.md)
-- [Architecture](docs/architecture.md)
-- [Live demo runbook](docs/demo-runbook.md)
-- [Speaker notes](docs/speaker-notes.md)
-- [Project context and acceptance criteria](docs/project-context.md)
+## Drive behavior
 
-**Status:** Local dev-server workspace. GitHub repository publication, Codespaces creation, and remote-host VS Code connection are **separate external actions** and are not implied by this checkout.
+The server maintains `drive/`. Uploads are held there between preview restarts. ZIP paths are validated and constrained to the drive. Loading a page creates that browser's own snapshot in a dedicated emulator, while upload also writes into the currently-running emulator. DOS-side saves/writes made by games are **not automatically synchronized back to the server**, nor between players. Do not mistake the room's common *initial* files for one live shared writable drive. Files can be committed to Git manually if desired; `drive/` is ignored by default to avoid accidentally committing uploaded copyrighted games.
+
+Room state and the WebSocket IPX relay are in memory and lost on restart. Player invite codes are temporary. Room membership is based on possession of the invite code/session token, not accounts. Keep the service on a private network.
+
+## Five talk demos
+
+1. Minimal local devcontainer JSON: open `demos/01-basic`.
+2. Custom local Dockerfile and DOSCloud Mini bootstrap: open root.
+3. Launch the exact repo in GitHub Codespaces.
+4. Connect desktop VS Code to the *same* Codespace.
+5. Recreate the repo/dev container on an SSH-connected remote Docker host.
+
+See `docs/talk-outline.md`, `docs/architecture.md`, `docs/demo-runbook.md`, and `docs/project-context.md`.
+
+## Credits and licensing
+
+The emulator files under `public/jsdos/` and `public/emulators/` originate from DOSCloud's vendored **js-dos 8.4.1**, licensed GPL-2.0. The WebSocket IPX browser adapter is adapted from the user's DOSCloud project. Dependencies include `ws`, `adm-zip`, and `qrcode` (MIT-licensed). Verify licensing and distribution obligations before redistributing the repository.

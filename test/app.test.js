@@ -5,90 +5,90 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const AdmZip = require("adm-zip");
 const { once } = require("node:events");
 const { createApp } = require("../src/server");
-const { validateGame, GameValidationError } = require("../src/catalog");
-const { RoomStore } = require("../src/rooms");
+const { DriveError, upload, listFiles } = require("../src/drive");
 
-test("validates game manifests and rejects executable/path traversal input", () => {
-  assert.deepEqual(validateGame({
-    id: "new-game", title: " Demo ", description: "Cool", kind: "tap",
-    targetLabel: "GO", extra: "<script>ignored</script>"
-  }), {
-    id: "new-game", title: "Demo", description: "Cool",
-    kind: "tap", durationSeconds: 20, targetLabel: "GO"
-  });
-  assert.throws(() => validateGame({
-    id: "../outside", title: "Bad", description: "Invalid", kind: "tap"
-  }), GameValidationError);
-  assert.throws(() => validateGame({
-    id: "bad-game", title: "Bad", description: "Executable", kind: "javascript"
-  }), GameValidationError);
+test("plain files go into the selected folder of the shared DOS drive", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mini-drive-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const result = upload(dir, "C:\\GAMES", "HELLO.COM", Buffer.from([0x90, 0x90]));
+  assert.equal(result.extracted, false);
+  assert.deepEqual(result.changes, [{ path: "GAMES/HELLO.COM", size: 2 }]);
+  assert.equal(fs.readFileSync(path.join(dir, "GAMES/HELLO.COM")).length, 2);
+  assert.deepEqual(listFiles(dir), [{ path: "GAMES/HELLO.COM", size: 2 }]);
 });
 
-test("room store creates, joins and scores without a database", () => {
-  const store = new RoomStore();
-  const host = store.create("star-tap", "Presenter");
-  assert.equal(store.list().length, 1);
-  const guest = store.join(host.room.id, "Audience");
-  const room = store.score(host.room.id, guest.playerId, 7);
-  assert.equal(room.players.length, 2);
-  assert.equal(room.players[1].score, 7);
-  assert.throws(() => store.score(host.room.id, "fake", 3), /Player not found/);
-  assert.throws(() => store.join("BAD", "Guest"), /Room not found/);
+test("ZIP files extract into target C: folder; traversal is blocked", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mini-zip-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const archive = new AdmZip();
+  archive.addFile("LEVELS/LEVEL1.TXT", Buffer.from("Level one"));
+  archive.addFile("PLAY.EXE", Buffer.from("demo"));
+  const result = upload(dir, "C:\\GAMES", "game.zip", archive.toBuffer());
+  assert.equal(result.extracted, true);
+  assert.deepEqual(result.changes.map((e) => e.path).sort(), ["GAMES/LEVELS/LEVEL1.TXT", "GAMES/PLAY.EXE"]);
+  assert.equal(fs.readFileSync(path.join(dir, "GAMES/PLAY.EXE"), "utf8"), "demo");
+  assert.throws(() => upload(dir, "C:\\", "../oops.exe", Buffer.from("x")), DriveError);
+  assert.throws(() => upload(dir, "C:\\..", "oops.exe", Buffer.from("x")), DriveError);
+  assert.throws(() => upload(dir, "D:\\", "oops.exe", Buffer.from("x")), DriveError);
 });
 
-test("HTTP app serves frontend, handles game imports and live room APIs", async (t) => {
-  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "game-cloud-test-"));
-  const gameDir = path.join(temp, "games");
-  fs.mkdirSync(gameDir);
-  fs.copyFileSync(path.resolve(__dirname, "../games/star-tap.json"), path.join(gameDir, "star-tap.json"));
-  const { server } = createApp({ gamesDir: gameDir });
+test("HTTP server serves emulator assets, accepts file/zip and creates QR and IPX rooms", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mini-http-"));
+  const { server, rooms } = createApp({ driveDir: dir });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   const base = "http://127.0.0.1:" + server.address().port;
   t.after(async () => {
+    rooms.close();
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
-    fs.rmSync(temp, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true });
   });
-
-  async function post(url, payload) {
-    return fetch(base + url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-  }
-
   const health = await (await fetch(base + "/api/health")).json();
   assert.equal(health.ok, true);
-  const page = await fetch(base + "/");
-  assert.equal(page.status, 200);
-  assert.match(await page.text(), /Game Cloud/);
-  assert.equal((await (await fetch(base + "/api/games")).json()).games.length, 1);
+  const page = await (await fetch(base)).text();
+  assert.match(page, /DOSCloud Mini/);
+  assert.match(page, /IPX room/);
+  const script = await fetch(base + "/jsdos/js-dos.js");
+  assert.equal(script.status, 200);
+  const wasm = await fetch(base + "/emulators/wdosbox-x.wasm");
+  assert.equal(wasm.status, 200);
+  assert.equal(wasm.headers.get("content-type"), "application/wasm");
+  await wasm.body.cancel();
 
-  const newGame = {
-    id: "imported-quiz", title: "Imported Quiz", description: "Safe JSON",
-    kind: "quiz", questions: [{ prompt: "Test?", answers: ["Yes", "No"], correctIndex: 0 }]
-  };
-  const imported = await post("/api/games/import", newGame);
-  assert.equal(imported.status, 201);
-  assert.equal(fs.existsSync(path.join(gameDir, "imported-quiz.json")), true);
-  assert.equal((await post("/api/games/import", newGame)).status, 409);
-  assert.equal((await post("/api/games/import", { ...newGame, id: "../attack" })).status, 400);
-  assert.equal((await fetch(base + "/api/games")).status, 200);
+  const uploaded = await fetch(base + "/api/upload?filename=HELLO.TXT&folder=C%3A%5C", {
+    method: "POST", body: Buffer.from("WELCOME TO DOS")
+  });
+  assert.equal(uploaded.status, 201);
+  assert.deepEqual((await uploaded.json()).changes, [{ path: "HELLO.TXT", size: 14 }]);
+  const drive = await (await fetch(base + "/api/drive")).json();
+  assert.equal(drive.files[0].path, "HELLO.TXT");
+  assert.equal(await (await fetch(base + "/api/drive/file?path=HELLO.TXT")).text(), "WELCOME TO DOS");
 
-  const createdResponse = await post("/api/rooms", { gameId: "star-tap", name: "Host" });
+  const createdResponse = await fetch(base + "/api/rooms", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ players: 2 })
+  });
   assert.equal(createdResponse.status, 201);
-  const created = await createdResponse.json();
-  const joined = await (await post("/api/rooms/" + created.room.id + "/join", { name: "Guest" })).json();
-  assert.equal(joined.room.players.length, 2);
-  const scored = await (await post("/api/rooms/" + created.room.id + "/score", {
-    playerId: joined.playerId, score: 9
-  })).json();
-  assert.equal(scored.room.players[1].score, 9);
-  const listed = await (await fetch(base + "/api/rooms")).json();
-  assert.equal(listed.rooms.length, 1);
-  assert.equal((await post("/api/rooms", { gameId: "not-real" })).status, 400);
+  const host = (await createdResponse.json()).session;
+  assert.equal(host.role, "host");
+  assert.match(host.code, /^[A-HJ-NP-Z2-9]{6}$/);
+  const joined = await fetch(base + "/api/rooms/" + host.code + "/join", { method: "POST" });
+  assert.equal(joined.status, 201);
+  const guest = (await joined.json()).session;
+  assert.equal(guest.role, "guest");
+  assert.equal(guest.peerId, 2);
+  assert.notEqual(guest.token, host.token);
+  assert.equal((await fetch(base + "/api/rooms/" + host.code + "/join", { method: "POST" })).status, 409);
+  const session = await (await fetch(base + "/api/rooms/session?token=" + host.token)).json();
+  assert.equal(session.session.code, host.code);
+  assert.equal((await fetch(base + "/api/rooms/session?token=wrong")).status, 404);
+
+  const qr = await fetch(base + "/api/rooms/qr?code=" + host.code);
+  assert.equal(qr.status, 200);
+  assert.equal(qr.headers.get("content-type"), "image/png");
+  assert.equal(Buffer.from(await qr.arrayBuffer()).subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
 });

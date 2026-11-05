@@ -1,235 +1,280 @@
 "use strict";
 
-const byId = (id) => document.getElementById(id);
-const state = { games: [], rooms: [], activeRoom: null, playerId: null, events: null };
+// A deliberately small shell around the same js-dos 8.4.1 / DOSBox-X runtime
+// and IPX adapter used by DOSCloud. Each browser owns its emulator instance.
+const byId = (name) => document.getElementById(name);
+let emulator = null;
+let roomSession = null;
+let network = null;
 
-function element(tag, className, content) {
-  const result = document.createElement(tag);
-  if (className) result.className = className;
-  if (content !== undefined) result.textContent = content;
-  return result;
+function showStatus(message) {
+  byId("runtime-status").textContent = message;
+}
+function showModalError(message) {
+  const status = byId("modal-status");
+  status.textContent = message;
+  status.className = "error";
+}
+function showModalInfo(message) {
+  const status = byId("modal-status");
+  status.textContent = message;
+  status.className = "";
+}
+async function requestJSON(path, options = {}) {
+  const response = await fetch(path, options);
+  let data = {};
+  try { data = await response.json(); } catch {}
+  if (!response.ok) throw new Error(data.error || "HTTP " + response.status);
+  return data;
+}
+function openModal(which) {
+  byId("upload-panel").hidden = which !== "upload";
+  byId("room-panel").hidden = which !== "room";
+  byId("modal-title").textContent = which === "upload" ? "Upload to DOS" : "IPX multiplayer";
+  byId("modal-status").textContent = "";
+  byId("modal-backdrop").hidden = false;
+  byId("close-modal").focus();
+}
+function closeModal() { byId("modal-backdrop").hidden = true; }
+function joinUrl(code) {
+  const url = new URL("/", location.origin);
+  url.searchParams.set("join", code);
+  return url.href;
+}
+function showRoom(session) {
+  const drawer = byId("room-drawer");
+  drawer.hidden = false;
+  byId("room-label").textContent = session.role === "host" ? "Host · " + session.players + " players" : "Guest · " + session.players + " players";
+  byId("room-code").textContent = session.code;
+  byId("room-link").value = joinUrl(session.code);
+  byId("room-qr").src = "/api/rooms/qr?code=" + encodeURIComponent(session.code);
+  byId("room-detail").textContent = session.role === "host"
+    ? "Launching DOSBox-X IPX host. Share this link or QR code."
+    : "Connecting this emulator to the host's DOSBox-X IPX network.";
+}
+function goToSession(session) {
+  const url = new URL("/", location.origin);
+  url.searchParams.set("session", session.token);
+  location.assign(url.href);
 }
 
-function status(message, isError = false) {
-  const box = byId("status");
-  box.textContent = message;
-  box.className = isError ? "status error" : "status";
-}
-
-async function api(url, options = {}) {
-  const response = await fetch(url, {
-    ...options,
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) }
-  });
-  let body;
-  try { body = await response.json(); } catch { body = {}; }
-  if (!response.ok) throw new Error(body.error || "Request failed: " + response.status);
-  return body;
-}
-
-function addLabelled(parent, tag, className, content) {
-  const child = element(tag, className, content);
-  parent.appendChild(child);
-  return child;
-}
-
-function renderGames() {
-  const list = byId("game-list");
-  const select = byId("room-game");
-  list.replaceChildren();
-  select.replaceChildren();
-  byId("game-count").textContent = String(state.games.length);
-  for (const game of state.games) {
-    const card = addLabelled(list, "article", "game-card");
-    addLabelled(card, "div", "game-icon", game.kind === "quiz" ? "◈" : "✦");
-    addLabelled(card, "h3", null, game.title);
-    addLabelled(card, "p", null, game.description);
-    const launch = addLabelled(card, "button", null, "Launch game →");
-    launch.type = "button";
-    launch.addEventListener("click", () => launchGame(game));
-    const option = document.createElement("option");
-    option.value = game.id;
-    option.textContent = game.title;
-    select.appendChild(option);
-  }
-}
-
-async function refreshGames() {
-  state.games = (await api("/api/games")).games;
-  renderGames();
-}
-
-function renderRooms() {
-  const list = byId("room-list");
-  list.replaceChildren();
-  byId("room-count").textContent = String(state.rooms.length);
-  if (!state.rooms.length) {
-    addLabelled(list, "p", "muted small", "No rooms yet. Create the first one.");
-    return;
-  }
-  for (const room of state.rooms) {
-    const game = state.games.find((g) => g.id === room.gameId);
-    const card = addLabelled(list, "div", "room-card");
-    addLabelled(card, "b", null, (game?.title || room.gameId) + " · " + room.id);
-    addLabelled(card, "p", null, room.players.length + " player(s) online");
-    const join = addLabelled(card, "button", null, "Join room →");
-    join.addEventListener("click", () => joinRoom(room.id));
-  }
-}
-
-async function refreshRooms() {
-  state.rooms = (await api("/api/rooms")).rooms;
-  renderRooms();
-}
-
-function renderActiveRoom(room) {
-  state.activeRoom = room;
-  const box = byId("active-room");
-  box.hidden = false;
-  box.replaceChildren();
-  addLabelled(box, "h3", null, "Live room " + room.id);
-  addLabelled(box, "p", "muted small", "Open a second tab and join from the room list.");
-  const ul = addLabelled(box, "ul");
-  for (const player of room.players) {
-    addLabelled(ul, "li", null, player.name + " — " + player.score + " points");
-  }
-}
-
-function followRoom(room, playerId) {
-  state.playerId = playerId;
-  renderActiveRoom(room);
-  if (state.events) state.events.close();
-  state.events = new EventSource("/api/rooms/" + room.id + "/events");
-  state.events.onmessage = (event) => {
-    const update = JSON.parse(event.data);
-    renderActiveRoom(update);
-    refreshRooms().catch((error) => status(error.message, true));
-  };
-  state.events.onerror = () => status("Live room connection interrupted; browser will retry.", true);
-  status("Connected to multiplayer room " + room.id + ". Launch that game to submit a score.");
-}
-
-async function createRoom() {
+async function startRoom() {
+  const button = byId("create-room");
+  button.disabled = true;
+  showModalInfo("Creating the IPX room…");
   try {
-    const result = await api("/api/rooms", {
+    const response = await requestJSON("/api/rooms", {
       method: "POST",
-      body: JSON.stringify({ gameId: byId("room-game").value, name: byId("player-name").value || "Host" })
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ players: Number(byId("players").value) })
     });
-    followRoom(result.room, result.playerId);
-    await refreshRooms();
-  } catch (error) { status(error.message, true); }
-}
-
-async function joinRoom(id) {
-  try {
-    const result = await api("/api/rooms/" + id + "/join", {
-      method: "POST",
-      body: JSON.stringify({ name: byId("player-name").value || "Guest" })
-    });
-    followRoom(result.room, result.playerId);
-    await refreshRooms();
-  } catch (error) { status(error.message, true); }
-}
-
-async function saveScore(gameId, score) {
-  if (!state.activeRoom || state.activeRoom.gameId !== gameId || !state.playerId) {
-    status("Finished with " + score + " points. Join a matching room to share your score.");
-    return;
-  }
-  try {
-    await api("/api/rooms/" + state.activeRoom.id + "/score", {
-      method: "POST",
-      body: JSON.stringify({ playerId: state.playerId, score })
-    });
-    status("Score " + score + " posted to live multiplayer room " + state.activeRoom.id + ".");
-  } catch (error) { status(error.message, true); }
-}
-
-function launchGame(game) {
-  const stage = byId("game-stage");
-  stage.replaceChildren();
-  addLabelled(stage, "h3", null, game.title);
-  addLabelled(stage, "p", "muted", game.description);
-  if (game.kind === "tap") launchTap(stage, game);
-  if (game.kind === "quiz") launchQuiz(stage, game);
-}
-
-function launchTap(stage, game) {
-  const scoreboard = addLabelled(stage, "p", "score", "0 points");
-  const timerLabel = addLabelled(stage, "p", "muted", game.durationSeconds + " seconds to play");
-  const target = addLabelled(stage, "button", "tap-target", game.targetLabel);
-  target.disabled = true;
-  const begin = addLabelled(stage, "button", "primary-button", "Start the game");
-  let score = 0;
-  let interval = null;
-  begin.addEventListener("click", () => {
-    if (interval) return;
-    begin.disabled = true;
-    target.disabled = false;
-    let remaining = game.durationSeconds;
-    interval = setInterval(() => {
-      remaining -= 1;
-      timerLabel.textContent = remaining + " seconds left";
-      if (remaining <= 0) {
-        clearInterval(interval);
-        interval = null;
-        target.disabled = true;
-        begin.textContent = "Game over";
-        saveScore(game.id, score);
-      }
-    }, 1000);
-  });
-  target.addEventListener("click", () => {
-    if (target.disabled) return;
-    score += 1;
-    scoreboard.textContent = score + " points";
-  });
-}
-
-function launchQuiz(stage, game) {
-  let questionIndex = 0;
-  let score = 0;
-  const questionArea = addLabelled(stage, "div");
-  function next() {
-    questionArea.replaceChildren();
-    if (questionIndex >= game.questions.length) {
-      addLabelled(questionArea, "h3", null, "Finished! " + score + " / " + game.questions.length);
-      saveScore(game.id, score);
-      return;
-    }
-    const question = game.questions[questionIndex];
-    addLabelled(questionArea, "p", "muted", "Question " + (questionIndex + 1) + " of " + game.questions.length);
-    addLabelled(questionArea, "h3", null, question.prompt);
-    question.answers.forEach((answer, index) => {
-      const button = addLabelled(questionArea, "button", "quiz-answer", answer);
-      button.addEventListener("click", () => {
-        if (index === question.correctIndex) score += 1;
-        questionIndex += 1;
-        next();
-      });
-    });
-  }
-  next();
-}
-
-async function importFromFile(event) {
-  const input = event.currentTarget;
-  const file = input.files?.[0];
-  if (!file) return;
-  try {
-    if (file.size > 64 * 1024) throw new Error("Game JSON must be smaller than 64 KiB");
-    const game = JSON.parse(await file.text());
-    const result = await api("/api/games/import", { method: "POST", body: JSON.stringify(game) });
-    await refreshGames();
-    status(result.game.title + " imported into games/. Commit and push to preserve on GitHub.");
+    goToSession(response.session);
   } catch (error) {
-    status(error.message, true);
+    showModalError(error.message);
+    button.disabled = false;
+  }
+}
+async function joinRoom(code) {
+  const normalized = String(code || "").trim().toUpperCase();
+  if (!/^[A-HJ-NP-Z2-9]{6}$/.test(normalized)) throw new Error("Enter a valid six-character room code");
+  const response = await requestJSON("/api/rooms/" + normalized + "/join", { method: "POST" });
+  goToSession(response.session);
+}
+
+async function uploadSelected() {
+  const file = byId("upload-file").files?.[0];
+  if (!file) return showModalError("Choose a file first");
+  if (file.size > 64 * 1024 * 1024) return showModalError("Maximum ZIP/file size is 64 MiB");
+  const button = byId("submit-upload");
+  button.disabled = true;
+  showModalInfo("Uploading " + file.name + "…");
+  try {
+    const url = "/api/upload?filename=" + encodeURIComponent(file.name) +
+      "&folder=" + encodeURIComponent(byId("upload-folder").value.trim() || "C:\\");
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/octet-stream" },
+      body: file
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Upload failed");
+    // Sync the newly changed files into THIS running emulator. A new room
+    // participant receives the full shared-drive snapshot during boot.
+    let synced = 0;
+    if (emulator) {
+      for (const item of data.changes) {
+        const bytes = await fetchFile(item.path);
+        await emulator.fsWriteFile("/" + item.path, bytes);
+        synced++;
+      }
+    }
+    const count = data.changes.length;
+    showStatus((data.extracted ? "Extracted " : "Uploaded ") + count + " file(s) to C: drive");
+    showModalInfo(data.extracted
+      ? "Extracted " + count + " file(s) into C: (" + synced + " loaded into this emulator)."
+      : "Saved to C: (" + synced + " loaded into this emulator).");
+  } catch (error) {
+    showModalError(error.message + " (Files already saved on the server may be available after refresh.)");
   } finally {
-    input.value = "";
+    button.disabled = false;
   }
 }
 
-byId("create-room").addEventListener("click", createRoom);
-byId("refresh-rooms").addEventListener("click", () => refreshRooms().catch((error) => status(error.message, true)));
-byId("game-upload").addEventListener("change", importFromFile);
-Promise.all([refreshGames(), refreshRooms()]).catch((error) => status(error.message, true));
+async function fetchFile(filePath) {
+  const response = await fetch("/api/drive/file?path=" + encodeURIComponent(filePath));
+  if (!response.ok) throw new Error("Could not read DOS file: " + filePath);
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+async function loadDrive() {
+  const data = await requestJSON("/api/drive");
+  const entries = [];
+  let total = 0;
+  for (const item of data.files) {
+    total += item.size;
+    if (total > 200 * 1024 * 1024) {
+      throw new Error("Demo drive exceeds 200 MiB; remove some uploads before booting");
+    }
+    entries.push({ path: item.path, contents: await fetchFile(item.path) });
+  }
+  return entries;
+}
+
+async function boot() {
+  const url = new URL(location.href);
+  let token = url.searchParams.get("session");
+  const invite = url.searchParams.get("join");
+  if (invite && !token) {
+    showStatus("Joining IPX room " + invite.toUpperCase() + "…");
+    await joinRoom(invite);
+    return;
+  }
+  if (token) {
+    roomSession = (await requestJSON("/api/rooms/session?token=" + encodeURIComponent(token))).session;
+    showRoom(roomSession);
+  }
+
+  showStatus("Preparing DOS C: drive…");
+  const initFs = await loadDrive();
+  if (roomSession) {
+    showStatus("Connecting IPX channel…");
+    network = await window.createIpxWebSocketNet({
+      role: roomSession.role,
+      code: roomSession.code,
+      expectedPlayers: roomSession.players,
+      hostPeerId: 1,
+    }, roomSession.token);
+  }
+  const dosboxConf = [
+    "[sdl]", "autolock=false", "",
+    "[dosbox]", "machine=svga_s3", "memsize=16", "",
+    "[cpu]", "core=auto", "cycles=auto", "",
+    "[autoexec]", "@echo off",
+    "mount c .",
+    "c:",
+    "cd \\",
+    ""
+  ].join("\n");
+
+  // Match DOSCloud's tested runtime options (DOSBox-X, worker backend and
+  // shared IPX Net contract). The first page loads straight into this surface.
+  const options = {
+    dosboxConf,
+    initFs,
+    pathPrefix: "/emulators/",
+    backend: "dosboxX",
+    backendLocked: true,
+    backendHardware: false,
+    renderBackend: "canvas",
+    workerThread: true,
+    autoStart: true,
+    autoSave: false,
+    kiosk: false,
+    imageRendering: "pixelated",
+    renderAspect: "4/3",
+    onEvent(event, ci) {
+      if (event !== "ci-ready") return;
+      emulator = ci;
+      window.__ci = ci; // developer console / live demo debugging
+      byId("boot-overlay").hidden = true;
+      showStatus(roomSession ? "DOS ready · IPX " + roomSession.code : "DOS ready · C:\\");
+      if (roomSession?.role === "host" && network) {
+        const announce = (message) => {
+          if (/IPX:\s*Connected to server/i.test(String(message))) {
+            network.announceHostReady();
+            byId("room-detail").textContent = "IPX server ready. Share the invite code with your players.";
+          }
+        };
+        ci.events?.()?.onStdout?.(announce);
+        ci.events?.()?.onMessage?.((type, ...messages) => announce([type, ...messages].join(" ")));
+        // Existing DOSCloud fallback when the loopback readiness log is not emitted.
+        setTimeout(() => network.announceHostReady(), 10000);
+      }
+    }
+  };
+  if (network) {
+    options.sharedNet = network;
+    if (roomSession.role === "host") options.startIpxServer = true;
+    else options.connectIpxAddress = "host";
+  }
+  showStatus(roomSession ? "Booting DOS with IPX…" : "Booting DOSBox-X…");
+  window.Dos(byId("dos"), options);
+}
+
+byId("upload-button").addEventListener("click", () => openModal("upload"));
+byId("room-button").addEventListener("click", () => {
+  if (roomSession) showRoom(roomSession);
+  else openModal("room");
+});
+byId("close-modal").addEventListener("click", closeModal);
+byId("modal-backdrop").addEventListener("pointerdown", (event) => {
+  if (event.target === byId("modal-backdrop")) closeModal();
+});
+byId("submit-upload").addEventListener("click", uploadSelected);
+byId("create-room").addEventListener("click", startRoom);
+byId("join-room").addEventListener("click", () => {
+  joinRoom(byId("join-code").value).catch((error) => showModalError(error.message));
+});
+byId("close-drawer").addEventListener("click", () => { byId("room-drawer").hidden = true; });
+byId("copy-link").addEventListener("click", async () => {
+  const link = byId("room-link");
+  try {
+    await navigator.clipboard.writeText(link.value);
+    byId("copy-link").textContent = "Copied!";
+    setTimeout(() => { byId("copy-link").textContent = "Copy join link"; }, 1600);
+  } catch {
+    link.select();
+    document.execCommand("copy");
+  }
+});
+byId("fullscreen-button").addEventListener("click", () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else byId("stage").requestFullscreen?.();
+});
+document.addEventListener("keydown", (event) => {
+  if (byId("modal-backdrop").hidden) return;
+  if (event.key === "Escape") { closeModal(); event.preventDefault(); }
+  // js-dos installs global key listeners; modal inputs must keep their keys.
+  event.stopImmediatePropagation();
+}, true);
+document.addEventListener("keyup", (event) => {
+  if (!byId("modal-backdrop").hidden) event.stopImmediatePropagation();
+}, true);
+window.addEventListener("doscloud-ipx-status", (event) => {
+  const state = event.detail?.state;
+  if (!roomSession) return;
+  if (state === "room-ready") {
+    byId("room-detail").textContent = "All players connected to the IPX room.";
+  } else if (state === "host-ready") {
+    byId("room-detail").textContent = "Host DOSBox-X IPX server is ready.";
+  } else if (state === "peer-joined") {
+    byId("room-detail").textContent = "Another DOS emulator joined your room.";
+  } else if (state === "peer-left") {
+    byId("room-detail").textContent = "A player disconnected.";
+  }
+});
+boot().catch((error) => {
+  console.error("DOSCloud Mini boot:", error);
+  showStatus("Error: " + error.message);
+  byId("boot-overlay").textContent = "Unable to boot DOS: " + error.message;
+});

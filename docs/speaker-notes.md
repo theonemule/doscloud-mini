@@ -1,56 +1,39 @@
-# Speaker Notes and Demo Narration
+# Speaker Notes — DOSCloud Mini as the running example
 
-## Story through all five demos
-"Imagine the repo doesn't just have the code for your game portal: it also knows how developers should work on it. Frontend, API, simple multiplayer and games live together. One command opens the workshop. Then I can choose where that workshop lives."
+The talk is about portable **development environments**, not an emulator platform rollout. Keep the five demos as five editor/hosting locations around the *same* tiny, one-screen emulator.
 
-### Demo 1 narrative
-- "This is not a Docker tutorial. This JSON describes what my editor needs to create."
-- Point to `image`, run `node -v`, and emphasize this is checked into source control.
-- Transition: "A base image is useful. What if my app needs a tailored environment and several running capabilities?"
+## Opening line
+"What if cloning a repository were enough to open a complete development workstation in a browser—not just code, but a running application, emulator, its API, and multiplayer networking?"
 
-### Demo 2 narrative
-- Reveal Dockerfile and lifecycle commands side by side.
-- Show the portal as a single pane of glass: game catalog, launch, import, create/join lobby.
-- "There is no database. Git holds definitions; RAM holds temporary sessions."
-- "Importing a game edits the local working tree. GitHub only gets it when I commit and push."
-- Transition: "What if my laptop doesn't have Docker or the right tooling?"
+## Demo 1: minimal local JSON
+"A development environment can start with one source-controlled JSON file." Explain the base image and VS Code attachment.
 
-### Demo 3 narrative
-- Open GitHub Codespaces and demonstrate it consumes the same devcontainer configuration.
-- "The runtime is now running in GitHub-managed compute, but the repo is familiar."
-- Show Ports tab and browser preview. Contrast forwarded URL with a production app host.
-- Transition: "A browser editor is useful; I may want my full desktop editor."
+## Demo 2: custom Dockerfile and application
+"Now we tailor the image and bootstrap the app. The page doesn't open to a launch dashboard. It simply IS the DOS emulator." Highlight port forwarding, Node process, static JS/WASM, upload and ZIP extraction to C:, and launch IPX room.
 
-### Demo 4 narrative
-- Connect VS Code desktop to the existing Codespace. Show status bar and hot reload.
-- "I changed clients, not code locations."
-- Transition: "The same idea isn't limited to GitHub's infrastructure."
+Why not use the same live C: drive for all players? "Each DOSBox-X runs separately; each starts from the same server-side files, while IPX carries the multiplayer packets. Sharing one live mutable filesystem would need conflict handling and is outside our demo."
 
-### Demo 5 narrative
-- SSH into remote machine, reopen folder in container.
-- "The dev environment is defined by source, not tied to a laptop, Codespace or remote VM."
-- For Compose path: distinguish building and starting a container from attaching the VS Code development client.
-- End: "Your laptop is a client. Git is the source of truth. The container is the repeatable workshop."
+## Demo 3: Codespaces
+"GitHub stores the source and dev-container definition. Codespaces gives us the machine. We still have the same emulator and tools."
 
-## Audience FAQ
-**Is GitHub a database?** No. It's a good repository for small versioned game definitions and source; not live session state.
+Important: uploaded games are **not** automatically saved to GitHub and must not be silently committed. Port visibility stays private.
 
-**Does a devcontainer automatically start all services?** Only if lifecycle hooks or a supervisor does so. A `postStartCommand` must exit; our script starts an idempotent background dev server.
+## Demo 4: desktop VS Code
+"The code and running app are unchanged; only the editor client is different." Show a CSS or label edit.
 
-**Can I transfer a running Codespace to any Docker server?** Not as a live migration. Clone repository and recreate/rebuild from the Dockerfile.
+## Demo 5: remote Docker
+"Now run the same environment on infrastructure you control. We rebuild from the repo rather than pretending to move the live Codespace." Remote SSH + devcontainer; connect local browser via port forwarding.
 
-**Is this how you host production multiplayer games?** No. A durable service would have auth, state storage, WebSocket/UDP choice, isolation, scaling and operations.
+## Closing
+"The laptop is a client; the repository is the versioned description of how to work; the container is the reproducible workshop."
 
-**Do I need local Docker to edit Codespaces in VS Code desktop?** No. The runtime is remote.
+## Frequently asked
+**Is this the full DOSCloud product?** No. It reuses the same js-dos 8.4.1 / DOSBox-X engine and WebSocket IPX adapter, but strips the auth, catalog, DB and application scaffolding for a presenter-friendly microcosm.
 
-## Optional visual slide sequence
-1. Title and hook
-2. Repository as the "portable workstation" diagram
-3. Demo 1 JSON only
-4. Demo 2 Dockerfile and lifecycle
-5. Game Cloud portal and versioned game repository
-6. Demo 3 Codespaces/port preview
-7. Demo 4 desktop VS Code client
-8. Demo 5 remote Docker + SSH
-9. Comparison table: local vs Codespaces vs remote host
-10. Three takeaways + QR/link to demo repo
+**Can guests play together?** They have independent emulators and a shared IPX room. Full interoperability of a specific game needs compatible game files and in-game multiplayer setup; validate a title before promising live game play.
+
+**Where do uploaded games go?** To the demo server's `drive/` directory, and into the uploading browser's active emulator. A new browser loads the current snapshot at boot. DOS-side saves are not automatically backed up.
+
+**Why HTTPS?** Modern browser emulator filesystem/storage APIs require a secure context on non-localhost hosts.
+
+**Is a dev container a production server?** No. This intentionally unauthenticated app is private and for development only.

@@ -1,38 +1,36 @@
-# Project Context — Durable Brief
+# Durable Project Context — DOSCloud Mini Codespaces Talk
 
-## Why this workspace exists
-Talk scheduled for the week following 2026-11-05. User requested a **talk with five distinct live demos**, **not five product phases**, about Docker Dev Containers, GitHub Codespaces, VS Code remote development. Each demo uses a small Dots Cloud-like "Game Cloud" to illustrate real workflows. Create project workspace on user's Blaize Dev server and retain architecture, outline, code context and next actions.
+## Current request (2026-11-05)
+The user simplified the originally planned Game Cloud portal. Deliver a **single screen**: real DOSCloud js-dos 8.4.1/DOSBox-X emulator boots immediately, tiny top toolbar with **Upload file**, **IPX room** (2–8 players, host/join code/link/QR in right drawer), and **Fullscreen**. There is no home/catalog, backend demo games, authentication, production DB, or persistent lobby view.
 
-## Locked decisions
-- Working project: `codespaces-game-cloud-talk` under configured Blaize Dev workspace root.
-- Audience-facing name: **Game Cloud**, subtitle **Build Once. Develop Anywhere.**
-- Five demos in order: (1) minimal local JSON, (2) custom local Dockerfile/bootstrap, (3) browser Codespace, (4) desktop VS Code to same Codespace, (5) remote host Docker + VS Code.
-- Single Node.js app listening on port 3000 to minimize forwarding friction; UI, API, room service from one process.
-- No database. Small declarative game manifests saved in `games/`; multiplayer lobbies/scores in-memory.
-- GitHub is the future canonical versioned game vault (source + manifests), but only after explicit repository publication and commits. Do not claim it stores live sessions.
-- Prefer free/zero-dependency examples to keep talk robust and understandable.
-- Avoid public services, production secrets, untrusted executable uploads, costly infrastructure.
-- Dev container builds must work on local Docker, Codespaces, and remote host once source is pushed.
+User specifically requested **reuse** the original DOSCloud emulator and IPX technology, not a fake game renderer. Reference DOSCloud source at `/var/lib/sandbox-mcp/workspaces/dos-cloud-multiplayer-draft/phase-06-change-ipx-multiplayer`. The actual DOSCloud production containers are separate and must not be modified.
 
-## Success / acceptance
-- Minimal Demo 1 JSON parses and Hello script runs.
-- Root Demo 2 Dockerfile + devcontainer config parse; container image builds; application starts; port 3000 responds.
-- Dashboard can list, launch and import a safe JSON game package; rooms can be created/joined and state updated in a second client.
-- Node tests cover core JSON API and safe import/room behavior.
-- Talk outline and runbook include precise demos, transitions, prerequisites, fallbacks, and architecture cautions.
-- Git project registered for future V5.1 work; actual remote Codespaces and SSH demos need outside GitHub/remote host configuration.
+## Implemented architecture
+- js-dos 8.4.1 / DOSBox-X browser runtime assets under `public/jsdos/` and `public/emulators/`, copied from DOSCloud; browser `public/ipx-websocket-net.js` adapted to this minimal app.
+- One Node 22 server in `src/server.js`, packages `ws`, `adm-zip`, `qrcode`. Served over port 3000.
+- Browser `public/app.js` boots emulator directly to C: via js-dos `Dos()`; no HTML game catalog.
+- `src/drive.js`: file upload or ZIP extract into `drive/` root/selected folder, path traversal checks and size caps. Browser syncs changed files with `ci.fsWriteFile`.
+- Each emulator loads the same server snapshot on boot. **No live synchronized C: drive**; DOS-side game saves not automatically uploaded/merged. The independently running emulators share an IPX transport only.
+- `src/ipx-rooms.js`: temporary room codes and tokens, 2–8 players, WebSocket relay preserving DOSCloud host readiness and binary packet framing.
+- Optional HTTPS if `TLS_KEY_PATH` and `TLS_CERT_PATH` set. LAN must use HTTPS/secure context for js-dos browser filesystem APIs; devcontainer localhost forwarded port works over HTTP.
+- No authentication: private/LAN/demo use only, never publish an unauthenticated upload endpoint to the Internet.
+- GPL-2.0 js-dos assets need license notice/distribution compliance.
 
-## Not in initial scope
-- Full Dots Cloud recreation, production multiplayer networking, relational DB, real user authentication, live game asset uploads, external game runtime isolation, platform deployment.
-- Publishing to GitHub or an external remote system without clear repository/host target.
+## Talk structure (five DEMOS, not product phases)
+1. Local tiny devcontainer JSON in `demos/01-basic`.
+2. Local customized Dockerfile + bootstrapped DOS emulator.
+3. Same repo in GitHub Codespaces web editor.
+4. VS Code desktop attaches to same Codespace.
+5. Remote SSH + Dev Container/Compose on a remote Docker host.
 
-## Immediate future tasks
-1. Finish and verify runnable scaffold for demo 2.
-2. Rehearse local Dev Containers image build and client attachment.
-3. Publish to an appropriate GitHub repository once target/permission is established.
-4. Rehearse actual Codespace and desktop VS Code connection.
-5. Choose/test a remote SSH Docker host, rehearse two-minute rebuild.
-6. Optional: add slides and short audience handout after demos settle.
+## Verification completed as of 2026-11-05
+- Node API tests: 4/4 passed (normal file, ZIP+traversal, HTTP/QR/asset API, real WebSocket IPX packet relay).
+- Dev Docker image builds; HTTPS preview live at `https://10.0.1.183:34131/` with a self-signed cert.
+- Headless real Chrome shows DOSBox-X canvas and `window.__ci`, boots to C:.
+- Real Chrome upload modal writes an ordinary file into running DOS emulator, `fsTree/fsReadFile` verified.
+- Real Chrome ZIP modal extracts nested ZIP and `fsReadFile` verified.
+- Two independent Chromium browser contexts hosted/joined an IPX room, peer IDs 1/2, room-ready status, no JS page errors.
+- Not yet proven: a complete DOS game actually exchanging multiplayer traffic via IPX end-to-end. May need game-specific setup.
 
-## Important operational note
-Do not confuse a developer container with a production runtime. Demo 5 should show **reconstruction** on remote Docker (via SSH), not claim to migrate a live container.
+## Next tasks
+Clean unused quiz/catalog/SSE implementation, update docs, commit. Rehearse true VS Code devcontainer attachment, GitHub Codespaces and remote SSH host in their environments; they are not inherently verified by a Docker image build.

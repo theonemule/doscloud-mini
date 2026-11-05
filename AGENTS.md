@@ -1,5 +1,7 @@
-# Agent / Contributor Working Context
+# Contributor guidance — DOSCloud Mini
 
-This is a **talk/demo project** using one cohesive miniature Game Cloud application to teach Dev Containers and GitHub Codespaces, not a full production game platform.
+This is the user's **talk demo** repository, not the production DOSCloud service. Read `docs/project-context.md`, `docs/architecture.md`, `docs/talk-outline.md`, and `docs/demo-runbook.md` before editing.
 
-Read `docs/project-context.md`, `docs/architecture.md`, `docs/talk-outline.md`, and `docs/demo-runbook.md` before changing architecture. Preserve the 5-demo narrative and portability between local Docker, Codespaces, VS Code desktop and remote Docker. Favor simple zero-dependency Node 22 code, port 3000, safe JSON game packages, and ephemeral in-memory rooms. Use tests; no secrets or public Docker sockets. Keep Git commits/pushes and cloud resources explicit.
+Keep one emulator screen with 46px toolbar, Upload file, IPX room, and Fullscreen. Reuse the current js-dos/DOSBox-X 8.4.1 assets and DOSCloud-compatible IPX adapter. No auth/catalog/dashboard/DB; demo intentionally stays on private network and browser localhost/HTTPS. Browser C: snapshots start from `drive/` but are not synchronized continuously. Preserve five live demos (not phases) showing local minimal, local custom, Codespaces, desktop VS Code attached to Codespace, and remote Docker via SSH.
+
+Do not touch production DOSCloud services or expose this upload API publicly. Tests must pass before commits; don't push/deploy without authorization. Verify js-dos GPL-2.0 licensing before distribution.

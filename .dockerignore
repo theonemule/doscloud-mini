@@ -1,0 +1,11 @@
+node_modules
+.git
+.runtime
+drive
+public
+src
+test
+docs
+games
+examples
+*.log

@@ -1,70 +1,52 @@
-# Live Demo Runbook
+# Presenter Runbook — DOSCloud Mini
 
-## Prerequisites / rehearsal setup
-- Local: VS Code + **Dev Containers** extension + running Docker Engine.
-- Cloud: GitHub account with Codespaces available, repo pushed ahead of time, VS Code desktop with GitHub Codespaces support.
-- Remote: Linux SSH host with Docker, Git, project clone, key-based SSH login; VS Code **Remote - SSH** + **Dev Containers**.
-- Prebuild or prelaunch the Codespace if talk time or bandwidth is tight; confirm any billed Codespaces resources/limits.
-- Use the same sample game catalog and Game Cloud port `3000` everywhere. Show one environment at a time.
-- Preflight: `npm test`; `npm start`; `curl -fsS http://localhost:3000/api/health` and browser visit.
+## Setup
+- Local VS Code with **Dev Containers** extension and Docker.
+- GitHub account with Codespaces for the cloud demos; this repo must be published first.
+- Desktop VS Code with Codespaces support; remote host with SSH/Docker for Demo 5.
+- Use only a private LAN, forwarded localhost, or a *private* Codespaces preview, because this intentionally unauthenticated demo accepts binary uploads.
+- Validate `npm ci && npm test` before demo. First browser boot should show real DOSBox-X console, not a home screen.
+- js-dos uses browser filesystem APIs requiring **https://** on remote LAN addresses or **http://localhost**. A self-signed cert creates a browser warning and should only be accepted for the known private dev server.
 
-## Demo 1 — local minimal JSON
-1. In VS Code, **File → Open Folder**: `demos/01-basic`.
-2. Show `.devcontainer/devcontainer.json` before invoking anything.
-3. Run **Dev Containers: Reopen in Container**.
-4. In terminal: `node --version`, `node hello.js`.
-5. Close this VS Code container window before demo 2.
+## Demo 1 — minimal local
+1. Open `demos/01-basic` in VS Code.
+2. Show the `.devcontainer/devcontainer.json` with a single base image.
+3. **Dev Containers: Reopen in Container**.
+4. `node --version`; `node hello.js`. Close window before opening repo root.
 
-**Backup:** show the JSON + local terminal output if image pull fails.
+## Demo 2 — custom local + real emulator
+1. Open repository root and show `.devcontainer/Dockerfile` and `.devcontainer/devcontainer.json`.
+2. Reopen in Container. `postCreateCommand` installs deps and runs tests; `postStartCommand` launches Node server.
+3. Open forwarded **localhost:3000**. DOSBox-X boots immediately to C: prompt.
+4. Click **Upload file**; select destination `C:\\`; choose any text file; upload; in DOS type `DIR` and `TYPE FILENAME.TXT`.
+5. Upload a sample ZIP with nested content, then `DIR` and `CD` into the extracted directory.
+6. Click **IPX room**, choose 2 players; click Launch. Show code/link/QR in right drawer. Open a second browser and follow invitation, verifying two separate DOS consoles.
+7. Explain: identical startup *files* and IPX network, not continuously shared writable C: drives.
 
-## Demo 2 — local custom environment
-1. Open **repository root** in VS Code, reveal `.devcontainer/Dockerfile`, `.devcontainer/devcontainer.json`, `.devcontainer/start-app.sh`.
-2. Run **Dev Containers: Reopen in Container** and wait for bootstrap to finish.
-3. Open forwarded **Game Cloud** port 3000 (local URL typically `http://localhost:3000`).
-4. Launch a built-in game; import `examples/game-import.json` using the dashboard.
-5. Start a multiplayer lobby. Open a second browser window and join it; the first window should update live.
-6. `git status --short` — point to the newly created `games/*.json` (do not auto-commit).
+## Demo 3 — Codespaces
+1. Publish the repo on GitHub beforehand. Choose **Code → Codespaces → Create codespace**.
+2. Show same Dockerfile and devcontainer, booted emulator preview in port 3000.
+3. Ensure forwarded port visibility is **Private**; user uploads and room invitation endpoints have no authentication.
+4. Explain uploaded drive files are not automatically checked into Git or available in other Codespaces.
 
-**Backup:** on host `npm start` or `docker compose up --build` and preview app; demonstrate Dockerfile separately.
-
-## Demo 3 — GitHub Codespaces
-1. **Before live talk**, push branch to the planned GitHub repository. Container workspace on dev server does not itself create a GitHub remote.
-2. Open GitHub repo → **Code** → **Codespaces** → create a Codespace from the desired branch.
-3. Observe VS Code in browser; open the Ports view; use forwarded port 3000.
-4. `curl -fsS http://localhost:3000/api/health`; compare Game Cloud UI to local.
-5. Show that catalog changes are Git working-tree changes; use Git deliberately to preserve them.
-6. Keep port visibility private unless the event requires a public demo link; never demonstrate confidential data on a public port.
-
-**Backup:** maintain a pre-created Codespace and screenshots/recording of first-build steps.
-
-## Demo 4 — VS Code desktop ↔ Codespace
-1. In the Codespace browser use **Open in VS Code** or connect via the Codespaces extension.
-2. Confirm the remote connection label in VS Code status bar and same file change/status.
-3. Change text in `public/index.html` or `public/app.js`; save; refresh preview.
-4. Switch browser/desktop editors to highlight same compute environment.
-
-**Backup:** show Codespaces desktop picker and Ports view; avoid committing unnecessary demo edits.
+## Demo 4 — desktop VS Code
+1. Open the *same existing Codespace* in VS Code desktop.
+2. Change a toolbar label in `public/index.html` or color in `public/styles.css`, then refresh preview.
+3. Show you have changed the editing client, not moved the compute.
 
 ## Demo 5 — remote Docker / SSH
-**Preferred path (faithful Dev Containers experience):**
-1. SSH to the approved remote host using VS Code **Remote-SSH: Connect to Host**.
-2. Clone/open repo on the **remote host filesystem**. Ensure Docker Engine works for the remote user.
-3. Run **Dev Containers: Reopen in Container**. The Docker daemon and the source checkout are remote.
-4. Forward port 3000 through VS Code and open Game Cloud. Show the same app, config, API.
+**Preferred:** Remote-SSH into remote Linux host with Docker, open clone of repo, **Dev Containers: Reopen in Container**, then forward port 3000 through VS Code. Browse on localhost.
 
-**Alternate 'inject a service container' path:**
-1. On remote Linux (not a production machine): clone repo, run `DEMO_UID=$(id -u) DEMO_GID=$(id -g) docker compose up --build -d` so imported games are writable in the host bind mount.
-2. VS Code Remote-SSH → use **Dev Containers: Attach to Running Container** (option may need extension), or remote terminal `docker compose exec gamecloud sh`.
-3. Use SSH/VS Code port forwarding to reach the port bound to remote loopback.
-4. `docker compose down` after showing the service, if appropriate.
+**Alternate Compose service:**
+```bash
+DEMO_UID=$(id -u) DEMO_GID=$(id -g) docker compose up --build -d
+# Local-only host port. Connect through SSH tunnel or HTTPS proxy, not exposed public HTTP.
+```
+If port 3000 is taken, set `DEMO_PORT=34124`. Then `docker compose down` when appropriate. A LAN URL using plain HTTP will **not** boot js-dos on Chrome; use SSH localhost forwarding or HTTPS.
 
-**Crucial distinction:** we are **recreating** an environment from an image/definition on another host. We are not moving a live Codespaces container to a remote machine.
-
-## Contingency & demo hygiene
-- Pre-fetch base images in both local and remote Docker to remove pull time.
-- Do not rely on Wi-Fi to build the first Codespace live; pre-create if necessary.
-- Don't assume port forwarding makes a service public: check privacy settings.
-- Do not hardcode GitHub tokens or change remote Docker daemon exposure.
-- If the game import from demo 2 is uncommitted, it will not automatically appear in demo 3. Either commit/push a known sample manifest, or explain why that difference proves the Git model.
-- If the Codespace has stopped, the backend must start again. Live lobbies will be reset.
-- If remote port 3000 is already occupied, prefix the Compose command with `DEMO_PORT=34124` to change only the host port.
+## Backup / pitfalls
+- Pre-pull the devcontainer base image, cache npm dependencies, and precreate Codespace before talk.
+- Keep a sample text file/ZIP ready on presenter desktop. Avoid using copyrighted game assets for audience handout.
+- If an uploaded file is missing in an existing second browser, reload that browser to fetch the new starting drive snapshot.
+- Joining a room proves emulator peers and transport connections; launching a particular IPX game's built-in multiplayer still requires game-specific commands and configuration.
+- Do not modify or redeploy the original DOSCloud production services.

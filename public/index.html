@@ -1,74 +1,73 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0b1020">
-  <title>Game Cloud • Dev Containers Demo</title>
-  <link rel="stylesheet" href="/styles.css">
-  <script src="/app.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#11131b">
+<title>DOSCloud Mini · DOS Console</title>
+<link rel="stylesheet" href="/jsdos/js-dos.css">
+<link rel="stylesheet" href="/styles.css">
+<script src="/jsdos/js-dos.js"></script>
+<script src="/ipx-websocket-net.js"></script>
+<script src="/app.js" defer></script>
 </head>
 <body>
-  <div class="shell">
-    <header class="topbar">
-      <div class="brand"><span class="brand-icon">✦</span><span>GAME<span class="brand-muted">CLOUD</span></span></div>
-      <div class="chip"><span class="live-dot"></span> Development workspace <span class="port">:3000</span></div>
-    </header>
-    <main>
-      <section class="hero">
-        <div class="eyebrow">ONE REPOSITORY. ANY DEVELOPMENT ENVIRONMENT.</div>
-        <h1>Your games.<br><span>Your cloud workspace.</span></h1>
-        <p class="hero-copy">A tiny Dots Cloud-inspired platform to demonstrate Docker Dev Containers, GitHub Codespaces and remote VS Code development.</p>
-        <div class="hero-actions">
-          <a class="primary-button" href="#catalog">Explore games <span aria-hidden="true">↗</span></a>
-          <div class="hero-note">No database. Just code, Git and a container.</div>
-        </div>
-      </section>
-      <section class="stats" aria-label="Demo capabilities">
-        <div><b id="game-count">–</b><span>Versioned games</span></div>
-        <div><b id="room-count">–</b><span>Active multiplayer rooms</span></div>
-        <div><b>1</b><span>Container / API port</span></div>
-      </section>
-      <section class="content-grid">
-        <div class="main-column">
-          <section class="panel" id="catalog">
-            <div class="section-head">
-              <div><p class="kicker">THE GIT-BACKED VAULT</p><h2>Game library</h2></div>
-              <label class="outline-button" for="game-upload">+ Import game JSON</label>
-              <input id="game-upload" type="file" accept=".json,application/json" hidden>
-            </div>
-            <p class="muted small">Every game is a small declarative JSON package in the repository. Importing creates a local file; you commit and push to save it in GitHub.</p>
-            <div id="game-list" class="game-grid" aria-live="polite"></div>
-          </section>
-          <section class="panel game-stage">
-            <div class="section-head">
-              <div><p class="kicker">LIVE APPLICATION FEATURE</p><h2>Game launcher</h2></div>
-              <span class="tag">Runs in your browser</span>
-            </div>
-            <div id="game-stage" class="stage-body">
-              <p class="muted">Choose a game above to launch it. You can submit a score to a multiplayer room for the same game.</p>
-            </div>
-          </section>
-        </div>
-        <aside class="panel multiplayer">
-          <div class="section-head">
-            <div><p class="kicker">IN-MEMORY MULTIPLAYER</p><h2>Live rooms</h2></div>
-            <button id="refresh-rooms" class="icon-button" title="Refresh rooms" aria-label="Refresh rooms">↻</button>
-          </div>
-          <p class="muted small">Create a lobby, then open this page in a second browser tab to join it. Player changes stream live.</p>
-          <label class="field-label" for="room-game">Game</label>
-          <select id="room-game"></select>
-          <label class="field-label" for="player-name">Your display name</label>
-          <input id="player-name" maxlength="40" value="Presenter" placeholder="Your name">
-          <button id="create-room" class="primary-button full">Create multiplayer room</button>
-          <div class="divider-label"><span>Active rooms</span></div>
-          <div id="room-list" class="room-list"></div>
-          <div id="active-room" class="active-room" hidden></div>
-        </aside>
-      </section>
-      <div id="status" class="status" role="status" aria-live="polite">Game Cloud ready for local, Codespaces or remote development.</div>
-    </main>
-    <footer>Built for a Dev Containers + GitHub Codespaces talk <span>·</span> Frontend + API + multiplayer, one reproducible workspace</footer>
-  </div>
+<div id="shell">
+  <header class="toolbar">
+    <div class="brand" title="DOSCloud Mini">DOS<span>CLOUD</span><small>mini</small></div>
+    <nav aria-label="Emulator actions">
+      <button id="upload-button" type="button">↥ <span>Upload file</span></button>
+      <button id="room-button" type="button">▦ <span>IPX room</span></button>
+      <button id="fullscreen-button" type="button" title="Fullscreen emulator">⛶ <span>Fullscreen</span></button>
+    </nav>
+    <div class="runtime-status" id="runtime-status" role="status">Starting DOS…</div>
+  </header>
+  <main id="stage" aria-label="DOS emulator console">
+    <div id="dos" aria-label="Interactive DOSBox-X emulator"></div>
+    <div id="boot-overlay" role="status"><span class="spinner"></span> Booting DOSBox-X…</div>
+  </main>
+</div>
+
+<div id="modal-backdrop" class="mini-backdrop" hidden>
+  <section class="mini-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <header class="modal-header"><h2 id="modal-title"></h2><button type="button" id="close-modal" aria-label="Close">×</button></header>
+    <div id="upload-panel" hidden>
+      <p>Upload a file into the DOS C: drive. ZIP files are unpacked automatically.</p>
+      <label for="upload-folder">Destination folder <small>(defaults to C:\)</small></label>
+      <input id="upload-folder" type="text" value="C:\" spellcheck="false" autocomplete="off">
+      <label for="upload-file">Choose a file or ZIP archive</label>
+      <input id="upload-file" type="file">
+      <button id="submit-upload" class="primary" type="button">Upload to DOS</button>
+    </div>
+    <div id="room-panel" hidden>
+      <p>Create a private IPX network for independent DOS emulators running the same game files.</p>
+      <label for="players">Number of players</label>
+      <select id="players">
+        <option value="2" selected>2 players</option>
+        <option value="3">3 players</option>
+        <option value="4">4 players</option>
+        <option value="5">5 players</option>
+        <option value="6">6 players</option>
+        <option value="7">7 players</option>
+        <option value="8">8 players</option>
+      </select>
+      <button id="create-room" class="primary" type="button">Launch IPX room</button>
+      <div class="divider">or join an existing room</div>
+      <label for="join-code">Six-character room code</label>
+      <div class="join-input"><input id="join-code" maxlength="6" placeholder="ABC123" autocapitalize="characters" spellcheck="false"><button id="join-room" type="button">Join</button></div>
+    </div>
+    <div id="modal-status" role="status" aria-live="polite"></div>
+  </section>
+</div>
+
+<aside id="room-drawer" class="drawer" aria-label="IPX room invitation" hidden>
+  <div class="drawer-head"><span>IPX ROOM</span><button id="close-drawer" title="Close panel" aria-label="Close invitation">×</button></div>
+  <div id="room-label" class="room-label">Room ready</div>
+  <div id="room-code" class="room-code"></div>
+  <p>Invite other players. Each opens their own DOS emulator with the same starting C: drive files.</p>
+  <img id="room-qr" alt="QR code to join this DOS IPX room" width="224" height="224">
+  <div class="invite-actions"><input id="room-link" aria-label="Room join URL" readonly><button id="copy-link" type="button">Copy join link</button></div>
+  <small id="room-detail">IPX transport is starting…</small>
+</aside>
 </body>
 </html>

@@ -1,12 +1,17 @@
 {
   "name": "game-cloud-devcontainer-talk",
   "private": true,
-  "version": "0.1.0",
-  "description": "Portable Game Cloud demo for a Dev Containers and Codespaces talk",
+  "version": "0.2.0",
+  "description": "Minimal browser DOS emulator with DOSCloud IPX rooms for Dev Containers talk",
   "engines": { "node": ">=22" },
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node --test"
+  },
+  "dependencies": {
+    "adm-zip": "0.6.1",
+    "qrcode": "1.5.4",
+    "ws": "8.21.3"
   }
 }

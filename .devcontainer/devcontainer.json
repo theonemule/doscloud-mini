@@ -1,5 +1,5 @@
 {
-  "name": "Game Cloud — Full Stack Development",
+  "name": "DOSCloud Mini — Portable DOS Development",
   "build": {
     "dockerfile": "Dockerfile",
     "context": ".."
@@ -8,7 +8,7 @@
   "forwardPorts": [3000],
   "portsAttributes": {
     "3000": {
-      "label": "Game Cloud",
+      "label": "DOSCloud Mini",
       "onAutoForward": "openPreview"
     }
   },
@@ -17,6 +17,6 @@
       "extensions": ["ms-azuretools.vscode-docker"]
     }
   },
-  "postCreateCommand": "npm test",
+  "postCreateCommand": "npm ci && npm test",
   "postStartCommand": "bash .devcontainer/start-app.sh"
 }
