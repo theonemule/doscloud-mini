@@ -1,3 +1,4 @@
+# Dependencies, build/runtime state and secrets must never be published.
 node_modules/
 .env
 .env.*
@@ -7,5 +8,7 @@ coverage/
 *.log
 tmp/
 .runtime/
-# Uploaded games stay in the demo workspace; commit intentionally if desired.
-drive/
+
+# The persistent DOS C: drive IS a normal Git working-tree directory.
+# Installed files are visible to git and can be committed/pushed explicitly.
+# Temporary IPX room clones and guest overlays live outside drive/ and stay ignored.

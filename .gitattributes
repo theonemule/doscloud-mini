@@ -1,0 +1,4 @@
+# Preserve DOS files byte for byte (no Git CRLF translation).
+drive/** -text
+# Executable and WebAssembly emulator assets should remain binary.
+public/emulators/*.wasm -text

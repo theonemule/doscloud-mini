@@ -74,7 +74,7 @@ Room host announces readiness after DOSBox-X IPX server startup; guests register
 - **This app has no user authentication** per demo requirements. Only run on a trusted host/private LAN or private forwarded port. Invite codes are not strong access control. Do not expose open uploads or guest invitations to the public Internet.
 - Uploaded files may be executables for DOS. Treat content as untrusted and **run only in the browser emulation environment**; never execute them on the host.
 - One host drive is durable, and room snapshots use metadata-only hardlinks on the same volume. Guest overlays are under temporary OS storage and removed at explicit room end/inactive expiry. This is not a production-grade crash-proof erasure guarantee.
-- Server validates DOS paths against traversal, bounds file/ZIP sizes, and stores uploads in a single `drive/` directory. The directory is ignored by Git to prevent accidentally checking in copyrighted binaries.
+- Server validates DOS paths against traversal, bounds file/ZIP sizes, and stores uploads in a single `drive/` directory. The persistent C: directory is Git-trackable; explicitly commit/push authorized content. Guest overlays remain outside Git.
 - ZIP and file imports are kept in that server's workspace; when moving to another dev machine, initial drive content does not magically migrate unless intentionally copied/versioned.
 - DOSCloud's js-dos 8.4.1 emulator is GPL-2.0. Check reuse and distribution obligations before publishing a public repository.
 - Browser js-dos requires a **secure context** (localhost or HTTPS) for filesystem APIs. LAN demos use development HTTPS with a self-signed certificate; VS Code forwarded localhost also works.
