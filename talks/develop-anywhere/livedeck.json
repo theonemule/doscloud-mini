@@ -1,0 +1,284 @@
+{
+  "id": "develop-anywhere-doscloud-2026",
+  "title": "Develop Anywhere — Dev Containers, Codespaces and Remote Development",
+  "style": {
+    "name": "DOSCloud / Atlanta retro DOS",
+    "baseTheme": "custom",
+    "customCss": ":host {\n  --slide-bg: #071321;\n  --slide-fg: #edf4ff;\n  --slide-muted: #b7cadd;\n  --slide-accent: #82b4ff;\n  --slide-surface: #10263e;\n  --slide-border: #30638a;\n  background: linear-gradient(135deg, #07101d 0%, #0a1d33 100%);\n}\n.rich-eyebrow { font-family: Consolas, monospace; color: #66ecc3; letter-spacing: .12em; }\n.rich-heading { font-family: Arial, sans-serif; font-weight: 900; letter-spacing: -.045em; text-transform: uppercase; }\n.slide-markdown { font-family: Arial, sans-serif; line-height: 1.46; }\n.slide-markdown strong { color: #ffd45c; }\n.slide-markdown code { background: #0e3142; color: #6ef9d1; border: 1px solid #306b80; }\n.slide-markdown pre { background: #081526; border: 2px solid #297bad; border-radius: 4px; box-shadow: 5px 5px 0 #030a12; }\n.slide-markdown blockquote { border-left: 4px solid #ffd45c; color: #edf4ff; }\n.slide-markdown th { background: #102b42; color: #82b4ff; }\n.slide-layout-section .rich-heading { color: #ffd45c; }\n.rich-slide-inner { border-top: 4px solid #3a9dde; }\n"
+  },
+  "handoutMode": "off",
+  "slides": [
+    {
+      "id": "boot",
+      "type": "slide",
+      "title": "DEVELOP ANYWHERE",
+      "markdown": "`C:\\> devcontainer /boot`\n**DEV CONTAINERS · CODESPACES · REMOTE DEVELOPMENT**\nOne repository. Multiple machines. One repeatable development environment.\n**Live build:** [DOSCloud Mini](https://github.com/theonemule/doscloud-mini)",
+      "layout": "title",
+      "theme": "custom"
+    },
+    {
+      "id": "problem",
+      "type": "slide",
+      "title": "It worked on my machine…",
+      "markdown": "**C:\\> ERROR 0xENV**\nDifferent runtimes. Missing tools. Wrong ports. Works only on one developer's laptop.\n**A repository should define how to develop the application—not just the application itself.**",
+      "layout": "statement",
+      "theme": "custom"
+    },
+    {
+      "id": "idea",
+      "type": "slide",
+      "title": "What we're actually building",
+      "markdown": "### Application\n- Source code + package lock\n- Browser DOSBox-X assets\n- `drive/` — persistent DOS C:\n- WebSocket and HTTP server\n---\n### Development contract\n- `devcontainer.json`\n- Base image or Dockerfile\n- Lifecycle commands\n- Forwarded ports\n- Editor/remote integration",
+      "layout": "columns",
+      "theme": "custom"
+    },
+    {
+      "id": "journey",
+      "type": "slide",
+      "title": "Today's four live demos",
+      "markdown": "1. **BOOT** — minimal `devcontainer.json` and Hello World\n2. **CONFIG** — Node app, lifecycle, ports, custom Dockerfile\n3. **CLOUD** — open the same repo in GitHub Codespaces\n4. **REMOTE** — SSH, attach to containers, debug remotely\n\n**Expect live terminal time to outweigh slides.**",
+      "layout": "agenda",
+      "theme": "custom"
+    },
+    {
+      "id": "mental-model",
+      "type": "slide",
+      "title": "The dev container mental model",
+      "markdown": "```mermaid\nflowchart LR\n  A[Git repository] --> B[devcontainer.json]\n  B --> C[Container image]\n  C --> D[Workspace + tools]\n  D --> E[App on port 3000]\n  E --> F[Forwarded browser URL]\n```\n**Definition + image + mounted source + startup = usable workspace.**",
+      "layout": "diagram",
+      "theme": "custom"
+    },
+    {
+      "id": "demo1-intro",
+      "type": "slide",
+      "title": "DEMO 01 — BOOT",
+      "markdown": "`C:\\> TYPE DEVCONTAINER.JSON`\nSmallest useful developer environment\n**Goal: no Dockerfile, no extra features, one line of output.**",
+      "layout": "section",
+      "theme": "custom"
+    },
+    {
+      "id": "hello-code",
+      "type": "slide",
+      "title": "One JSON file, one runtime",
+      "markdown": "```json\n{\n  \"name\": \"01 — Hello World\",\n  \"image\": \"mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm\",\n  \"remoteUser\": \"node\",\n  \"postCreateCommand\": \"node demos/01-basic/hello.js\"\n}\n```\n**File:** `.devcontainer/01-hello-world/devcontainer.json`",
+      "layout": "code",
+      "theme": "custom"
+    },
+    {
+      "id": "demo1-live",
+      "type": "slide",
+      "title": "LIVE: Hello World in a container",
+      "markdown": "1. Open **Dev Containers: Reopen in Container**.\n2. Select **01 — Hello World**.\n3. Show VS Code attaching to the container.\n4. Run `node --version` and `node demos/01-basic/hello.js`.\n5. Inspect the container terminal; explain where Node came from.\n\n**Checkpoint:** the greeting appears without installing Node on the host.",
+      "layout": "steps",
+      "theme": "custom"
+    },
+    {
+      "id": "demo1-takeaway",
+      "type": "slide",
+      "title": "The first container did almost nothing",
+      "markdown": "That's the point.\n\n**We described a development environment in six lines and made it repeatable.**\n\nNext: make the environment run a real web application.",
+      "layout": "minimal",
+      "theme": "custom"
+    },
+    {
+      "id": "anatomy",
+      "type": "slide",
+      "title": "`devcontainer.json` is the control panel",
+      "markdown": "### Image/build\nSelect an image or custom Dockerfile.\n---\n### Lifecycle\nRun `postCreateCommand` and `postStartCommand`.\n---\n### Access\nForward app ports; optionally add editor customizations.",
+      "layout": "cards",
+      "theme": "custom"
+    },
+    {
+      "id": "lifecycle",
+      "type": "slide",
+      "title": "The lifecycle matters",
+      "markdown": "- **Build** — produce/reuse an image with Node and dependencies\n- **Create** — create workspace container, mount source\n- **postCreate** — `npm ci && npm test`\n- **postStart** — start server if not running\n- **Edit** — rebuild image only when Dockerfile changes\n\n**Don't reinstall every tool on every terminal open.**",
+      "layout": "timeline",
+      "theme": "custom"
+    },
+    {
+      "id": "options",
+      "type": "slide",
+      "title": "Three ways to describe the environment",
+      "markdown": "### Prebuilt image\nStart fast. Minimal maintenance.\n\n**`image: ...`**\n---\n### Custom Dockerfile\nControl layers and dependencies.\n\n**`build: { dockerfile: ... }`**\n\n**Compose is an additional choice when multiple services are needed—not required here.**",
+      "layout": "comparison",
+      "theme": "custom"
+    },
+    {
+      "id": "demo2-intro",
+      "type": "slide",
+      "title": "DEMO 02 — CONFIG",
+      "markdown": "`C:\\> BUILD /CUSTOM`\nMove from Hello World to the actual DOSCloud Mini application\n**Node.js 22, npm dependencies, tests and port 3000.**",
+      "layout": "section",
+      "theme": "custom"
+    },
+    {
+      "id": "node-config",
+      "type": "slide",
+      "title": "The Node app configuration",
+      "markdown": "```json\n{\n  \"name\": \"02 — Node.js app development\",\n  \"image\": \"mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm\",\n  \"remoteUser\": \"node\",\n  \"forwardPorts\": [3000],\n  \"postCreateCommand\": \"npm ci && npm test\",\n  \"postStartCommand\": \"bash .devcontainer/start-app.sh\"\n}\n```\n**Source:** `.devcontainer/02-node-app/devcontainer.json` (abridged)",
+      "layout": "code",
+      "theme": "custom"
+    },
+    {
+      "id": "dockerfile",
+      "type": "slide",
+      "title": "A custom Docker image: precise, not bloated",
+      "markdown": "```dockerfile\nFROM mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm\nUSER root\nCOPY package.json package-lock.json /opt/doscloud-mini/\nRUN cd /opt/doscloud-mini && npm ci --omit=dev --no-audit --no-fund\nENV NODE_PATH=/opt/doscloud-mini/node_modules PORT=3000 HOST=0.0.0.0\nUSER node\n```\n**Source:** `.devcontainer/Dockerfile`",
+      "layout": "code",
+      "theme": "custom"
+    },
+    {
+      "id": "build-vs-runtime",
+      "type": "slide",
+      "title": "Image layers are not workspace state",
+      "markdown": "```mermaid\nflowchart TB\n  A[Dockerfile + package-lock.json] --> B[Build image layers]\n  B --> C[Run container]\n  D[Git workspace] --> C\n  C --> E[Node server]\n  C --> F[Mounted drive/]\n```\n**Image:** tools and dependencies. **Workspace:** code and persistent DOS files.",
+      "layout": "diagram",
+      "theme": "custom"
+    },
+    {
+      "id": "ports",
+      "type": "slide",
+      "title": "Port forwarding is a developer feature",
+      "markdown": "```mermaid\nflowchart LR\n  A[Node in container :3000] --> B[Dev Container port forward]\n  B --> C[VS Code localhost:3000]\n  B --> D[Codespaces HTTPS URL]\n```\n**Port 3000 carries HTTP, uploads, REMOTEFS WS and IPX WS.**\n**Keep Codespaces forwarding PRIVATE.**",
+      "layout": "diagram",
+      "theme": "custom"
+    },
+    {
+      "id": "demo2-live",
+      "type": "slide",
+      "title": "LIVE: From config to running DOSCloud",
+      "markdown": "1. Open `.devcontainer/02-node-app/devcontainer.json`.\n2. Select **02 — Node.js app** and rebuild/reopen.\n3. Show `npm ci`, tests, and `postStartCommand`.\n4. Open forwarded **port 3000**; boot DOSBox-X.\n5. Switch to **03 — Custom Dockerfile**; inspect build layers.\n6. Show `C:\\DOOMS`, upload/save a file, and refresh.\n\n**Checkpoint:** same app and same persisted C: drive; different image strategy.",
+      "layout": "steps",
+      "theme": "custom"
+    },
+    {
+      "id": "gotchas",
+      "type": "slide",
+      "title": "What breaks first?",
+      "markdown": "- [x] `HOST=0.0.0.0` lets the container accept forwarded connections\n- [x] Forward **3000** to the editor/browser\n- [x] Use **localhost** or **HTTPS** for browser emulator APIs\n- [x] Run `npm test` before the audience arrives\n- [ ] Avoid public upload endpoints and public debug ports",
+      "layout": "checklist",
+      "theme": "custom"
+    },
+    {
+      "id": "cloud-shape",
+      "type": "slide",
+      "title": "What changes in GitHub Codespaces?",
+      "markdown": "```mermaid\nflowchart LR\n  A[Public GitHub repository] --> B[Codespace VM]\n  B --> C[Dev Container + Node]\n  C --> D[Application :3000]\n  D --> E[Private forwarded HTTPS URL]\n  F[Browser / VS Code] --> E\n```\n**Same devcontainer.json. Different computer.**",
+      "layout": "diagram",
+      "theme": "custom"
+    },
+    {
+      "id": "demo3-intro",
+      "type": "slide",
+      "title": "DEMO 03 — CLOUD",
+      "markdown": "`C:\\> CONNECT CODESPACES`\nRun the same repository in GitHub's hosted development environment\n**No second toolchain setup. No local Docker requirement.**",
+      "layout": "section",
+      "theme": "custom"
+    },
+    {
+      "id": "codespaces-steps",
+      "type": "slide",
+      "title": "Create a Codespace from the actual repo",
+      "markdown": "1. Open **Code → Codespaces → Create codespace**.\n2. Choose **02 — Node.js app** or the default custom Docker setup.\n3. Observe `postCreateCommand` + tests.\n4. Open the forwarded **3000** port.\n5. Confirm visibility is **Private** and URL uses HTTPS.",
+      "layout": "steps",
+      "theme": "custom"
+    },
+    {
+      "id": "demo3-live",
+      "type": "slide",
+      "title": "LIVE: Same project, cloud compute",
+      "markdown": "1. Launch an existing/prebuilt Codespace or create a new one.\n2. Show VS Code browser editor + terminal.\n3. `node --version`, `npm test`, `curl localhost:3000/api/health`.\n4. Open DOSCloud Mini on the HTTPS forwarded URL.\n5. Compare the **same config** with the local Dev Container.\n\n**Checkpoint:** browser emulator boots without a local Node installation.",
+      "layout": "steps",
+      "theme": "custom"
+    },
+    {
+      "id": "state",
+      "type": "slide",
+      "title": "Same Git history ≠ same disk",
+      "markdown": "### Shared through Git\n- JS source and devcontainer files\n- DOOM shareware in `drive/`\n- Tests and docs\n- Committed changes\n---\n### Not automatically shared\n- Uncommitted DOS saves\n- Local environment state\n- Temporary IPX guest overlays\n- Files outside the workspace",
+      "layout": "columns",
+      "theme": "custom"
+    },
+    {
+      "id": "remote-shape",
+      "type": "slide",
+      "title": "Remote development is not one thing",
+      "markdown": "### Remote-SSH\nEditor connects to a Linux host; open source there.\n---\n### Dev Container on remote\nRebuild/reopen the same workspace on that host's Docker.\n---\n### Attach to running container\nInspect an existing container and its filesystem/processes.",
+      "layout": "cards",
+      "theme": "custom"
+    },
+    {
+      "id": "demo4-intro",
+      "type": "slide",
+      "title": "DEMO 04 — REMOTE",
+      "markdown": "`C:\\> SSH /ATTACH`\nDevelop on a remote host. Inspect a running container.\n**Editor here. Compute there. Port forward in between.**",
+      "layout": "section",
+      "theme": "custom"
+    },
+    {
+      "id": "remote-vs-attach",
+      "type": "slide",
+      "title": "Remote-SSH / Reopen / Attach",
+      "markdown": "### Reopen in Container\nRepo + `devcontainer.json` define a new/reused dev environment.\n\nBest for repeatable development.\n---\n### Attach to Running Container\nConnect to a container already running under Docker.\n\nBest for investigating a live service.",
+      "layout": "comparison",
+      "theme": "custom"
+    },
+    {
+      "id": "remote-debug",
+      "type": "slide",
+      "title": "Debugging across the boundary",
+      "markdown": "```bash\n# On the remote development host, inside the project/container:\nnpm test\nnode --inspect=127.0.0.1:9229 src/server.js\n```\n\n**Forward `9229` privately if your debugger needs it.**\nUse VS Code **Attach to Node Process** (or an attach configuration).\n**Never publish an inspector endpoint.**",
+      "layout": "code",
+      "theme": "custom"
+    },
+    {
+      "id": "demo4-live",
+      "type": "slide",
+      "title": "LIVE: Remote host + container + debugger",
+      "markdown": "1. **Remote-SSH** into the Linux dev host.\n2. Open the repo; **Reopen in Container**.\n3. Check `docker ps` and application health.\n4. Open remotely forwarded **3000** in the local browser.\n5. Stop the dev watcher; launch Node with the inspector on loopback.\n6. Attach VS Code debugger and hit a server-side breakpoint.\n\n**Checkpoint:** local editor controls Node running on another machine.",
+      "layout": "steps",
+      "theme": "custom"
+    },
+    {
+      "id": "dos-persistence",
+      "type": "slide",
+      "title": "The DOS drive is a great state demo",
+      "markdown": "```mermaid\nflowchart TD\n  A[Tracked host drive/] --> B[Room snapshot (hardlinks)]\n  B --> C[Guest A + file-level COW]\n  B --> D[Guest B + file-level COW]\n  A --> E[Git commit + push]\n  C --> F[Discard at room end]\n  D --> F\n```\n**Host saves persist. Guest clones do not. Git is explicit.**",
+      "layout": "diagram",
+      "theme": "custom"
+    },
+    {
+      "id": "guardrails",
+      "type": "slide",
+      "title": "A few non-negotiable guardrails",
+      "markdown": "- [x] Commit the environment definition\n- [x] Pin the Node major version and use `npm ci`\n- [x] Run tests before opening a forwarded browser\n- [ ] Do not make unauthenticated uploads public\n- [ ] Do not expose Node inspector `9229`\n- [ ] Do not commit secrets or arbitrary licensed games",
+      "layout": "checklist",
+      "theme": "custom"
+    },
+    {
+      "id": "final",
+      "type": "slide",
+      "title": "The takeaway",
+      "markdown": "**Define the environment once.**\n\nRun it on your laptop, in Codespaces, or on a remote host.\n\n`C:\\> READY`",
+      "layout": "statement",
+      "theme": "custom"
+    },
+    {
+      "id": "resources",
+      "type": "slide",
+      "title": "GET THE SOURCE",
+      "markdown": "**Repository:** [github.com/theonemule/doscloud-mini](https://github.com/theonemule/doscloud-mini)\n\n**Examples:** `.devcontainer/01-hello-world`, `02-node-app`, `03-custom-docker`\n\n**Read the guide:** `docs/devcontainer-examples.md`\n\n**More:** [blaize.net](https://blaize.net) · [LinkedIn](https://www.linkedin.com/in/techonfire/) · [me@blaize.net](mailto:me@blaize.net)",
+      "layout": "content",
+      "theme": "custom"
+    },
+    {
+      "id": "qa",
+      "type": "slide",
+      "title": "C:\\> QUESTIONS?",
+      "markdown": "`DOSCLOUD MINI  |  NODE 22  |  PORT 3000  |  STATUS: READY`\n\nLet's talk about containers, remote environments, or the live demos.",
+      "layout": "section",
+      "theme": "custom"
+    }
+  ]
+}

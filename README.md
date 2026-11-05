@@ -50,6 +50,10 @@ If the host uploads or changes a file after the room is created, existing guests
 
 Room state and the WebSocket IPX relay are in memory and lost on restart. Player invite codes are temporary. Room membership is based on possession of the invite code/session token, not accounts. Keep the service on a private network.
 
+## Conference presentation: Develop Anywhere
+
+A 60-minute, demo-led talk using the original DOSCloud Atlanta deck's navy, cyan, mint terminal and yellow highlight visual language is available as **[34 editable Markdown slides](talks/develop-anywhere/slides.md)**. The [talk folder](talks/develop-anywhere/README.md) also contains LiveDeck-compatible `livedeck.json`, the custom CSS theme, presenter notes, a generation script and a four-demo runbook. The first three Dev Container examples in this repository are used directly in the talk; the fourth demo covers Remote-SSH and attaching to a running container. Run `node talks/develop-anywhere/build-deck.mjs` after editing the Markdown.
+
 ## Five talk demos
 
 1. Minimal local devcontainer JSON: open `demos/01-basic`.
