@@ -6,7 +6,7 @@ This is a **portable developer demonstration**, not a public DOSCloud deployment
 
 ## Single screen
 - **Upload file**: choose any file and a target C: folder (defaults to `C:\\`); a `.zip` is unpacked automatically in that folder. Uploaded files are copied into the current emulator and saved on the dev server.
-- **IPX room**: choose 2–8 players; host starts its own DOSBox-X IPX server. The right-hand drawer shows room code, link and QR code. Each invited player opens an independent browser emulator and gets the same starting C: drive snapshot.
+- **IPX room**: choose 2–8 players; host starts its own DOSBox-X IPX server. The right-hand drawer shows room code, link and QR code. Each invited player opens an independent browser emulator backed by a temporary copy-on-write clone of the host C: drive.
 - **Fullscreen**: expand the emulator.
 
 The app immediately boots into DOS. There is **no catalog, dashboard, authentication, database, or JavaScript quiz/game renderer**.
@@ -28,7 +28,11 @@ npm start
 
 ## Drive behavior
 
-The server maintains `drive/`. Uploads are held there between preview restarts. ZIP paths are validated and constrained to the drive. Loading a page creates that browser's own snapshot in a dedicated emulator, while upload also writes into the currently-running emulator. DOS-side saves/writes made by games are **not automatically synchronized back to the server**, nor between players. Do not mistake the room's common *initial* files for one live shared writable drive. Files can be committed to Git manually if desired; `drive/` is ignored by default to avoid accidentally committing uploaded copyrighted games.
+The host's **persistent** DOS C: drive is `drive/`. DOSBox-X mounts it directly using the original DOSCloud REMOTEFS worker and server-backed filesystem RPC (`/api/fs` or `/ws/fs`). DOS file operations (including game saves) are written to that server drive, not just to the browser's memory. Uploads and unzipped files also land there. The folder is ignored by Git to avoid accidentally committing copyrighted binaries.
+
+On **room creation**, the server creates one frozen base snapshot: a filesystem **hard link** for each host file (metadata only, without duplicating its contents on the same volume). The host's later writes break any shared hard links before modifying files, preserving the snapshot. Each joining guest gets an **empty, disposable writable overlay** on top of that frozen base. Reads are served from the base; a guest's first modification to a file copies only that file into their overlay (file-level copy-on-write), while newly created files go straight into the overlay. Other players never see that guest's changes. There is **no up-front full drive download**, no per-guest full copy and no guest-drive persistence. Guest data is deleted when the host clicks **End room** or an inactive room expires (up to 2 hours); the host's originals survive. A crash can leave temporary server files until cleanup, so this is not a security-grade ephemeral storage system.
+
+If the host uploads or changes a file after the room is created, existing guests retain the room's original snapshot; to receive new files they need a newly created room. Cloning uses hard links only when the host and snapshot are on the same filesystem; it falls back to a one-time copy otherwise. This is **file-level**, not block-level, delta handling.
 
 Room state and the WebSocket IPX relay are in memory and lost on restart. Player invite codes are temporary. Room membership is based on possession of the invite code/session token, not accounts. Keep the service on a private network.
 

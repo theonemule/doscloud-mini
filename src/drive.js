@@ -50,6 +50,20 @@ function filePath(root, raw) {
   return location;
 }
 
+// Always replace host files atomically instead of truncating their inodes:
+// room snapshots may hold hardlinks to the previously committed host version.
+function atomicWrite(target, data) {
+  const crypto = require("node:crypto");
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  const temp = path.join(path.dirname(target), ".mini-" + crypto.randomBytes(12).toString("hex"));
+  try {
+    fs.writeFileSync(temp, data, { flag: "wx", mode: 0o600 });
+    fs.renameSync(temp, target);
+  } finally {
+    try { fs.unlinkSync(temp); } catch (err) { if (err.code !== "ENOENT") throw err; }
+  }
+}
+
 function ensureDrive(root) {
   fs.mkdirSync(root, { recursive: true });
 }
@@ -104,15 +118,13 @@ function upload(root, folder, filename, bytes) {
       catch { throw new DriveError("ZIP extraction failed"); }
       if (data.length > MAX_EXTRACTED) throw new DriveError("ZIP entry too large", 413);
       const target = filePath(root, relative);
-      fs.mkdirSync(path.dirname(target), { recursive: true });
-      fs.writeFileSync(target, data, { flag: "w" });
+      atomicWrite(target, data);
       changes.push({ path: relative, size: data.length });
     }
   } else {
     const relative = [...destination, file[0]].join("/");
     const target = filePath(root, relative);
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.writeFileSync(target, bytes, { flag: "w" });
+    atomicWrite(target, bytes);
     changes.push({ path: relative, size: bytes.length });
   }
   return { changes, extracted: /\.zip$/i.test(file[0]) };

@@ -49,6 +49,6 @@ Show the one-screen end state. No dashboard, account, database or hosted game se
 
 - Git/GitHub version code. They do not function as a shared DOS game filesystem or session database.
 - A devcontainer is a reproducible development environment, not a production hosting contract.
-- IPX rooms connect independent emulators. They load a common **initial** file snapshot; DOS writes are not continuously shared.
+- IPX rooms connect independent emulators to a common frozen host snapshot with per-guest **copy-on-write** overlays. Host DOS writes persist; guest writes are temporary and isolated, not shared.
 
 **About 41 minutes + Q&A.**

@@ -49,3 +49,5 @@ h2{font-size:20px;margin:0}
 .invite-actions button{margin:0}
 .drawer small{display:block;color:var(--dim);margin-top:15px;line-height:1.5}
 @media(max-width:650px){.toolbar{gap:5px;padding:0 7px}.brand{font-size:11px}.brand small{display:none}.toolbar button{padding:6px 5px;font-size:11px}.toolbar button span{display:none}.runtime-status{max-width:130px}.drawer{width:min(320px,100%)}}
+
+#end-room-button{width:100%;margin-top:20px;padding:9px;background:transparent;border:1px solid #75565e;border-radius:7px;color:#f9b2a8;font-size:12px}

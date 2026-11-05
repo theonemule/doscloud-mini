@@ -11,7 +11,7 @@ The talk is about portable **development environments**, not an emulator platfor
 ## Demo 2: custom Dockerfile and application
 "Now we tailor the image and bootstrap the app. The page doesn't open to a launch dashboard. It simply IS the DOS emulator." Highlight port forwarding, Node process, static JS/WASM, upload and ZIP extraction to C:, and launch IPX room.
 
-Why not use the same live C: drive for all players? "Each DOSBox-X runs separately; each starts from the same server-side files, while IPX carries the multiplayer packets. Sharing one live mutable filesystem would need conflict handling and is outside our demo."
+Why not share one live writable C: across all players? "We clone the host's original files once using hardlinks, then every guest gets its own copy-on-write delta. DOS writes stay isolated and disposable; IPX carries the gameplay packets. It is filesystem cloning, not state synchronization."
 
 ## Demo 3: Codespaces
 "GitHub stores the source and dev-container definition. Codespaces gives us the machine. We still have the same emulator and tools."
@@ -32,7 +32,7 @@ Important: uploaded games are **not** automatically saved to GitHub and must not
 
 **Can guests play together?** They have independent emulators and a shared IPX room. Full interoperability of a specific game needs compatible game files and in-game multiplayer setup; validate a title before promising live game play.
 
-**Where do uploaded games go?** To the demo server's `drive/` directory, and into the uploading browser's active emulator. A new browser loads the current snapshot at boot. DOS-side saves are not automatically backed up.
+**Where do uploaded games go?** Host uploads and DOS-side saves persist in the host's server-backed `drive/`. Guest uploads and DOS-side writes go to their disposable overlays, not the host. A room starts with one frozen snapshot of host C:.
 
 **Why HTTPS?** Modern browser emulator filesystem/storage APIs require a secure context on non-localhost hosts.
 

@@ -6,6 +6,7 @@ const byId = (name) => document.getElementById(name);
 let emulator = null;
 let roomSession = null;
 let network = null;
+let driveToken = null;
 
 function showStatus(message) {
   byId("runtime-status").textContent = message;
@@ -44,6 +45,7 @@ function joinUrl(code) {
 function showRoom(session) {
   const drawer = byId("room-drawer");
   drawer.hidden = false;
+  byId("end-room-button").hidden = session.role !== "host";
   byId("room-label").textContent = session.role === "host" ? "Host · " + session.players + " players" : "Guest · " + session.players + " players";
   byId("room-code").textContent = session.code;
   byId("room-link").value = joinUrl(session.code);
@@ -89,7 +91,8 @@ async function uploadSelected() {
   button.disabled = true;
   showModalInfo("Uploading " + file.name + "…");
   try {
-    const url = "/api/upload?filename=" + encodeURIComponent(file.name) +
+    const url = "/api/upload?token=" + encodeURIComponent(driveToken) +
+      "&filename=" + encodeURIComponent(file.name) +
       "&folder=" + encodeURIComponent(byId("upload-folder").value.trim() || "C:\\");
     const response = await fetch(url, {
       method: "POST",
@@ -98,46 +101,19 @@ async function uploadSelected() {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Upload failed");
-    // Sync the newly changed files into THIS running emulator. A new room
-    // participant receives the full shared-drive snapshot during boot.
-    let synced = 0;
-    if (emulator) {
-      for (const item of data.changes) {
-        const bytes = await fetchFile(item.path);
-        await emulator.fsWriteFile("/" + item.path, bytes);
-        synced++;
-      }
-    }
     const count = data.changes.length;
+    // Files are written directly into the mounted remote C: drive. For guests
+    // these writes go into their disposable COW overlay, never into the host.
+    // The existing DOSCloud directory cache expires after a short TTL.
     showStatus((data.extracted ? "Extracted " : "Uploaded ") + count + " file(s) to C: drive");
     showModalInfo(data.extracted
-      ? "Extracted " + count + " file(s) into C: (" + synced + " loaded into this emulator)."
-      : "Saved to C: (" + synced + " loaded into this emulator).");
+      ? "Extracted " + count + " file(s) to C: (visible after the DOS directory refresh)."
+      : "Saved to C: (visible after the DOS directory refresh).");
   } catch (error) {
     showModalError(error.message + " (Files already saved on the server may be available after refresh.)");
   } finally {
     button.disabled = false;
   }
-}
-
-async function fetchFile(filePath) {
-  const response = await fetch("/api/drive/file?path=" + encodeURIComponent(filePath));
-  if (!response.ok) throw new Error("Could not read DOS file: " + filePath);
-  return new Uint8Array(await response.arrayBuffer());
-}
-
-async function loadDrive() {
-  const data = await requestJSON("/api/drive");
-  const entries = [];
-  let total = 0;
-  for (const item of data.files) {
-    total += item.size;
-    if (total > 200 * 1024 * 1024) {
-      throw new Error("Demo drive exceeds 200 MiB; remove some uploads before booting");
-    }
-    entries.push({ path: item.path, contents: await fetchFile(item.path) });
-  }
-  return entries;
 }
 
 async function boot() {
@@ -154,8 +130,10 @@ async function boot() {
     showRoom(roomSession);
   }
 
-  showStatus("Preparing DOS C: drive…");
-  const initFs = await loadDrive();
+  showStatus("Connecting to shared DOS C: drive…");
+  // No full C: download. DOSCloud REMOTEFS performs on-demand path operations;
+  // the host has the only persistent drive, guests use temporary COW overlays.
+  driveToken = roomSession?.token || (await requestJSON("/api/drive/session", { method: "POST" })).token;
   if (roomSession) {
     showStatus("Connecting IPX channel…");
     network = await window.createIpxWebSocketNet({
@@ -170,7 +148,7 @@ async function boot() {
     "[dosbox]", "machine=svga_s3", "memsize=16", "",
     "[cpu]", "core=auto", "cycles=auto", "",
     "[autoexec]", "@echo off",
-    "mount c .",
+    "mount c /remote/" + driveToken,
     "c:",
     "cd \\",
     ""
@@ -180,7 +158,6 @@ async function boot() {
   // shared IPX Net contract). The first page loads straight into this surface.
   const options = {
     dosboxConf,
-    initFs,
     pathPrefix: "/emulators/",
     backend: "dosboxX",
     backendLocked: true,
@@ -236,6 +213,21 @@ byId("join-room").addEventListener("click", () => {
   joinRoom(byId("join-code").value).catch((error) => showModalError(error.message));
 });
 byId("close-drawer").addEventListener("click", () => { byId("room-drawer").hidden = true; });
+byId("end-room-button").addEventListener("click", async () => {
+  if (roomSession?.role !== "host") return;
+  const button = byId("end-room-button");
+  button.disabled = true;
+  try {
+    await requestJSON("/api/rooms/" + roomSession.code + "/end", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token: roomSession.token })
+    });
+    location.assign("/");
+  } catch (error) {
+    button.disabled = false;
+    byId("room-detail").textContent = "Could not end room: " + error.message;
+  }
+});
 byId("copy-link").addEventListener("click", async () => {
   const link = byId("room-link");
   try {

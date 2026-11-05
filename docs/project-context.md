@@ -10,7 +10,7 @@ User specifically requested **reuse** the original DOSCloud emulator and IPX tec
 - One Node 22 server in `src/server.js`, packages `ws`, `adm-zip`, `qrcode`. Served over port 3000.
 - Browser `public/app.js` boots emulator directly to C: via js-dos `Dos()`; no HTML game catalog.
 - `src/drive.js`: file upload or ZIP extract into `drive/` root/selected folder, path traversal checks and size caps. Browser syncs changed files with `ci.fsWriteFile`.
-- Each emulator loads the same server snapshot on boot. **No live synchronized C: drive**; DOS-side game saves not automatically uploaded/merged. The independently running emulators share an IPX transport only.
+- Updated 2026-11-05 per user: **True server-backed C: using DOSCloud REMOTEFS** instead of full browser snapshot download. Host persistent `drive/`; one hardlink-backed frozen room base; each guest's empty filesystem overlay is copy-on-write and deleted on room end/expiry. Host DOS writes persist, guest DOS writes remain temporary. This is FILE-level COW, not block delta. IPX transport remains separate.
 - `src/ipx-rooms.js`: temporary room codes and tokens, 2–8 players, WebSocket relay preserving DOSCloud host readiness and binary packet framing.
 - Optional HTTPS if `TLS_KEY_PATH` and `TLS_CERT_PATH` set. LAN must use HTTPS/secure context for js-dos browser filesystem APIs; devcontainer localhost forwarded port works over HTTP.
 - No authentication: private/LAN/demo use only, never publish an unauthenticated upload endpoint to the Internet.
@@ -34,3 +34,10 @@ User specifically requested **reuse** the original DOSCloud emulator and IPX tec
 
 ## Next tasks
 Clean unused quiz/catalog/SSE implementation, update docs, commit. Rehearse true VS Code devcontainer attachment, GitHub Codespaces and remote SSH host in their environments; they are not inherently verified by a Docker image build.
+
+## Subsequent request: fast ephemeral room clones (2026-11-05)
+- Imported original DOSCloud `DriveStore`, `LayeredDriveStore`, binary filesystem protocol and WebSocket/HTTP bridge under `src/dos-*`. `src/fs-rpc.js` exposes `/ws/fs` and `/api/fs` keyed by per-console/room token.
+- Browser `public/app.js` mounts `C:` via `mount c /remote/<token>` and never downloads all files at startup. With COOP/COEP enabled, the SharedArrayBuffer filesystem WebSocket bridge initializes.
+- `src/room-drive.js` hardlinks a frozen host-base once per room (same filesystem). `DurableHostDriveStore` detaches linked files on writes; host uploads atomically replace paths; guests use `GuestOverlayDriveStore` and temporary COW deltas; host alone persists.
+- Host can click **End room and discard guest clones**; inactive rooms expire after 2h and are cleaned periodically. A crash may leave temporary data until later cleanup; no production-grade data deletion guarantee.
+- Verified: 5 Node tests; HTTP FS binary protocol; host snapshot inode sharing and isolation; actual DOSBox-X browser mounted remote C: via WebSocket bridge; `MKDIR DELTADIR` from a host DOS console persisted to `drive/`; guest `MKDIR GUESTCLN` wrote only to temporary overlay in container and was deleted when host ended the room; 2 browser peers connected through IPX. Actual specific multiplayer DOS game not yet tested.

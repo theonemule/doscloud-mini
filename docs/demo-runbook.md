@@ -21,7 +21,7 @@
 4. Click **Upload file**; select destination `C:\\`; choose any text file; upload; in DOS type `DIR` and `TYPE FILENAME.TXT`.
 5. Upload a sample ZIP with nested content, then `DIR` and `CD` into the extracted directory.
 6. Click **IPX room**, choose 2 players; click Launch. Show code/link/QR in right drawer. Open a second browser and follow invitation, verifying two separate DOS consoles.
-7. Explain: identical startup *files* and IPX network, not continuously shared writable C: drives.
+7. Explain: the host's persistent C: is backed by DOSCloud REMOTEFS; each guest has a snapshot base plus an empty, disposable write delta. Have a guest type `MKDIR GUESTSAVE` and show no such directory in the host's C:. Click **End room** and explain the temporary overlay is removed.
 
 ## Demo 3 — Codespaces
 1. Publish the repo on GitHub beforehand. Choose **Code → Codespaces → Create codespace**.
@@ -47,6 +47,6 @@ If port 3000 is taken, set `DEMO_PORT=34124`. Then `docker compose down` when ap
 ## Backup / pitfalls
 - Pre-pull the devcontainer base image, cache npm dependencies, and precreate Codespace before talk.
 - Keep a sample text file/ZIP ready on presenter desktop. Avoid using copyrighted game assets for audience handout.
-- If an uploaded file is missing in an existing second browser, reload that browser to fetch the new starting drive snapshot.
+- File additions to the host after room creation do not appear in existing guest snapshots; end the room and create a new one to share the new base. A host upload may take a short time to appear in its own DOS listing due to the remote FS cache.
 - Joining a room proves emulator peers and transport connections; launching a particular IPX game's built-in multiplayer still requires game-specific commands and configuration.
 - Do not modify or redeploy the original DOSCloud production services.

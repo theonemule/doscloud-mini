@@ -19,7 +19,7 @@ A deliberately minimal, browser-first **DOSBox-X / js-dos 8.4.1** emulator appli
 ```
 
 - One page, toolbar 46px tall; the emulator occupies the remaining viewport.
-- **Upload file modal:** destination folder, file picker. Ordinary binary upload writes that file to the selected folder of the demo C drive. ZIP upload validates and extracts entries within the selected folder, then synchronizes changed files into the current running emulator.
+- **Upload file modal:** destination folder, file picker. Ordinary binary upload writes that file to the selected folder of the demo C drive. ZIP upload validates and extracts entries within the selected folder, then writes the files into that player’s server-backed C: drive (the host original or a guest delta layer).
 - **IPX room modal:** select 2–8 players, click Launch; shows join code, link and QR in a right slide-over. Other players follow that link and get their own running DOS console.
 - **Fullscreen** for the emulator.
 
@@ -31,46 +31,52 @@ A deliberately minimal, browser-first **DOSBox-X / js-dos 8.4.1** emulator appli
                     \                |                  /
                      +----------- Node :3000 -----------+
                      | static emulator JS/WASM + UI     |
-                     | /api/drive + /api/upload         |
+                     | /api/upload                     |
+                     | /api/fs and /ws/fs (REMOTEFS)   |
                      | /api/rooms + /api/rooms/qr       |
                      | /ws/ipx (room-scoped relay)      |
                      +----------------------------------+
                            |                   |
-                     server drive/       ephemeral room state
-                     (single snapshot    and peer tokens in RAM
-                      source for boot)
+                     host drive/          room state (RAM)
+                     persistent           one hardlink snapshot
+                                          guest COW overlays
                            |
              +-------------+---------------+
              |                             |
        Browser Emulator A            Browser Emulator B
-       DOSBox-X + local C:           DOSBox-X + local C:
+       DOSBox-X + host C:            DOSBox-X + base+delta C:
        IPX peer 1 (host)             IPX peer 2 (guest)
              +------ WebSocket IPX relay --+
 ```
 
-Each browser creates a **separate running emulator with its own writable in-browser filesystem**. Both download the same initial C: files from the demo server. Their DOS process writes are *not* automatically uploaded or synchronized. The IPX relay forwards game network packets, not the DOS filesystem. Uploading through the toolbar updates the server and the *current* emulator; reload other browsers to get the new snapshot. Shared live filesystem semantics would require a different design.
+Each browser runs a separate DOSBox-X emulator with a **remote-mounted server-backed C: drive**, reusing DOSCloud's existing binary filesystem protocol and worker/WebSocket bridge. There is no full C: download at emulator boot. The host's C: drive persists in `drive/`, including files DOS programs write. Creating an IPX room freezes one hardlink-backed snapshot of that host drive, then gives each guest a disposable copy-on-write overlay. Reads go to the base unless shadowed; only files modified by that guest are copied into their overlay. These are **file-level** deltas, not block-level patches. A guest's writes never update the host or another guest.
+
+The room snapshot is a point-in-time view. Host writes after snapshot creation preserve the original base by atomically replacing files or detaching hardlinked inodes. The host's changes persist; guests keep their old view until a new room is created. End room or idle expiration discards temporary room files. The IPX relay remains independent of filesystem transport.
 
 ## APIs
 | Path | Operation |
 |---|---|
 | `GET /api/health` | health check |
-| `GET /api/drive` | list uploaded C: files |
-| `GET /api/drive/file?path=...` | retrieve file bytes |
-| `POST /api/upload?filename=...&folder=C:\\` | upload file bytes; auto-extract ZIP |
-| `POST /api/rooms` | create IPX room with 2–8 players |
-| `POST /api/rooms/:code/join` | create a guest peer session |
+| `POST /api/drive/session` | create a transient host-console access token |
+| `POST /api/upload?token=...&filename=...&folder=C:\` | host upload persists; guest upload writes to their delta overlay; ZIP extracts |
+| `POST /api/rooms` | snapshot host C: once and create IPX room with 2–8 players |
+| `POST /api/rooms/:code/join` | create a guest peer and empty overlay on first access |
+| `POST /api/rooms/:code/end` | host stops room and deletes temporary snapshots/deltas |
 | `GET /api/rooms/session?token=...` | peer session metadata |
 | `GET /api/rooms/qr?code=...` | QR invitation PNG |
-| `WS /ws/ipx?token=...` | DOSCloud-compatible binary IPX transport |
+| `POST /api/fs?launch=...&session=...` | original DOSCloud binary filesystem RPC fallback |
+| `WS /ws/fs?launch=...&session=...` | DOSCloud REMOTEFS WebSocket bridge |
+| `WS /ws/ipx?token=...` | DOSCloud-compatible room IPX packet relay |
 
-Room host announces readiness only after DOSBox-X IPX server startup; guests register through DOSCloud's `sharedNet` adapter. The room relay does not translate DOS game protocols or synchronize filesystem files.
+Room host announces readiness after DOSBox-X IPX server startup; guests register through DOSCloud's `sharedNet` adapter. IPX messages are not filesystem writes.
 
 ## Security, portability and limitations
 - **This app has no user authentication** per demo requirements. Only run on a trusted host/private LAN or private forwarded port. Invite codes are not strong access control. Do not expose open uploads or guest invitations to the public Internet.
 - Uploaded files may be executables for DOS. Treat content as untrusted and **run only in the browser emulation environment**; never execute them on the host.
+- One host drive is durable, and room snapshots use metadata-only hardlinks on the same volume. Guest overlays are under temporary OS storage and removed at explicit room end/inactive expiry. This is not a production-grade crash-proof erasure guarantee.
 - Server validates DOS paths against traversal, bounds file/ZIP sizes, and stores uploads in a single `drive/` directory. The directory is ignored by Git to prevent accidentally checking in copyrighted binaries.
 - ZIP and file imports are kept in that server's workspace; when moving to another dev machine, initial drive content does not magically migrate unless intentionally copied/versioned.
 - DOSCloud's js-dos 8.4.1 emulator is GPL-2.0. Check reuse and distribution obligations before publishing a public repository.
 - Browser js-dos requires a **secure context** (localhost or HTTPS) for filesystem APIs. LAN demos use development HTTPS with a self-signed certificate; VS Code forwarded localhost also works.
-- No persistence of in-memory rooms on restart. No production isolation, rate limiting, user storage quotas, or authorization.
-- Tested: browser DOS boot, direct upload and ZIP extraction into running emulator, host/guest browser connection with IPX peer IDs 1 and 2, backend binary relay. Full game-to-game IPX networking has **not yet been validated with a particular DOS title**.
+- No persistence of in-memory rooms on restart. No production isolation, rate limiting, user storage quotas, or authorization. Keep Codespaces port private and do not expose HTTP file-writing endpoints publicly.
+- Tested: browser DOS boot, host file and ZIP uploads, DOS-side host `MKDIR` persisted, DOS-side guest `MKDIR` wrote only to its temporary delta and was erased at room end; host/guest browser IPX peer IDs 1 and 2, filesystem WebSocket worker, backend filesystem and binary relay. Full game-to-game IPX networking has **not yet been validated with a particular DOS title**.

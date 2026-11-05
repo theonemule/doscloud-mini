@@ -6,11 +6,9 @@ const { WebSocketServer, WebSocket } = require("ws");
 const MAX_ROOMS = 100;
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const MAX_AGE_MS = 2 * 60 * 60 * 1000;
-
 class IpxRoomError extends Error {
   constructor(message, status = 400) { super(message); this.status = status; }
 }
-
 function roomCode() {
   return Array.from(crypto.randomBytes(6), (byte) => ALPHABET[byte % ALPHABET.length]).join("");
 }
@@ -20,23 +18,31 @@ class IpxRooms {
   constructor() {
     this.rooms = new Map();
     this.tokens = new Map();
+    this.onDispose = null;
+    this.expiryTimer = setInterval(() => this.trim(), 60_000);
+    this.expiryTimer.unref?.();
     this.wss = new WebSocketServer({ noServer: true, perMessageDeflate: false, maxPayload: 65540 });
   }
-
+  remove(code) {
+    const room = this.rooms.get(code);
+    if (!room) return;
+    this.rooms.delete(code);
+    for (const peer of room.peers) {
+      this.tokens.delete(peer.token);
+      peer.socket?.close(1001, "Room removed");
+    }
+    this.onDispose?.(room);
+  }
   trim() {
     for (const room of this.rooms.values()) {
-      if (Date.now() - room.createdAt > MAX_AGE_MS && room.peers.every((p) => !p.socket)) {
-        this.rooms.delete(room.code);
-        for (const peer of room.peers) this.tokens.delete(peer.token);
-      }
+      if (Date.now() - room.createdAt > MAX_AGE_MS && room.peers.every((p) => !p.socket))
+        this.remove(room.code);
     }
   }
-
   create(players) {
     this.trim();
-    if (!Number.isInteger(players) || players < 2 || players > 8) {
+    if (!Number.isInteger(players) || players < 2 || players > 8)
       throw new IpxRoomError("Select 2 to 8 players");
-    }
     if (this.rooms.size >= MAX_ROOMS) throw new IpxRoomError("Room limit reached", 429);
     let code;
     do { code = roomCode(); } while (this.rooms.has(code));
@@ -44,7 +50,6 @@ class IpxRooms {
     this.rooms.set(code, room);
     return this.newPeer(room, "host");
   }
-
   newPeer(room, role) {
     if (room.peers.length >= room.players) throw new IpxRoomError("Room is full", 409);
     const peer = { peerId: room.peers.length + 1, role, token: token(), room, socket: null };
@@ -52,29 +57,24 @@ class IpxRooms {
     this.tokens.set(peer.token, peer);
     return this.describe(peer);
   }
-
   join(code) {
+    this.trim();
     const room = this.rooms.get(String(code || "").toUpperCase());
     if (!room) throw new IpxRoomError("Room not found or expired", 404);
     return this.newPeer(room, "guest");
   }
-
   describe(peer) {
     return {
-      token: peer.token,
-      code: peer.room.code,
-      role: peer.role,
-      players: peer.room.players,
-      peerId: peer.peerId
+      token: peer.token, code: peer.room.code, role: peer.role,
+      players: peer.room.players, peerId: peer.peerId
     };
   }
-
   session(value) {
+    this.trim();
     const peer = this.tokens.get(value);
     if (!peer) throw new IpxRoomError("Invalid IPX session", 404);
     return this.describe(peer);
   }
-
   handleUpgrade(req, socket, head) {
     let value;
     try {
@@ -82,27 +82,22 @@ class IpxRooms {
       if (url.pathname !== "/ws/ipx") throw new Error("Wrong endpoint");
       value = url.searchParams.get("token");
     } catch {
-      socket.write("HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n");
-      socket.destroy();
+      socket.end("HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n");
       return;
     }
     const peer = this.tokens.get(value);
     if (!peer) {
-      socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
-      socket.destroy();
+      socket.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
       return;
     }
     this.wss.handleUpgrade(req, socket, head, (ws) => this.connect(ws, peer));
   }
-
   send(peer, payload) {
     if (peer.socket?.readyState === WebSocket.OPEN) peer.socket.send(JSON.stringify(payload));
   }
-
   broadcast(room, message, skip = null) {
     for (const peer of room.peers) if (peer !== skip) this.send(peer, message);
   }
-
   connect(ws, peer) {
     const room = peer.room;
     peer.socket?.close(1000, "New connection");
@@ -116,9 +111,8 @@ class IpxRooms {
       roomReady: room.peers.filter((p) => p.socket).length >= room.players
     });
     this.broadcast(room, { type: "peer-joined", peerId: peer.peerId, role: peer.role }, peer);
-    if (room.peers.filter((p) => p.socket).length >= room.players) {
+    if (room.peers.filter((p) => p.socket).length >= room.players)
       this.broadcast(room, { type: "room-ready", connectedPlayers: room.players });
-    }
     if (room.hostReady) this.send(peer, { type: "host-ready", hostPeerId: 1 });
     ws.on("message", (message, binary) => {
       if (peer.socket !== ws) return;
@@ -129,9 +123,7 @@ class IpxRooms {
         if (peer.role === "host" && data.type === "ipx-server-ready") {
           room.hostReady = true;
           this.broadcast(room, { type: "host-ready", hostPeerId: 1 });
-        } else {
-          ws.close(1003, "Unknown control message");
-        }
+        } else ws.close(1003, "Unknown control message");
         return;
       }
       if (message.length < 5 || message.length > 65540) return;
@@ -153,11 +145,10 @@ class IpxRooms {
       this.broadcast(room, { type: "peer-left", peerId: peer.peerId, role: peer.role });
     });
   }
-
   close() {
+    clearInterval(this.expiryTimer);
     for (const client of this.wss.clients) client.terminate();
     this.wss.close();
   }
 }
-
 module.exports = { IpxRooms, IpxRoomError };
