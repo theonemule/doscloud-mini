@@ -1,0 +1,20 @@
+{
+  "name": "03 — Custom Dockerfile for DOSCloud Mini",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": "../.."
+  },
+  "remoteUser": "node",
+  "forwardPorts": [
+    3000
+  ],
+  "portsAttributes": {
+    "3000": {
+      "label": "DOSCloud Mini",
+      "onAutoForward": "openBrowserOnce",
+      "protocol": "http"
+    }
+  },
+  "postCreateCommand": "npm ci && npm test",
+  "postStartCommand": "bash .devcontainer/start-app.sh"
+}

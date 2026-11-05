@@ -5,7 +5,7 @@
 - GitHub account with Codespaces for the cloud demos; this repo must be published first.
 - Desktop VS Code with Codespaces support; remote host with SSH/Docker for Demo 5.
 - Use only a private LAN, forwarded localhost, or a *private* Codespaces preview, because this intentionally unauthenticated demo accepts binary uploads.
-- Validate `npm ci && npm test` before demo. First browser boot should show real DOSBox-X console, not a home screen.
+- Validate `npm ci && npm test` before demo. See `docs/devcontainer-examples.md` for all three Node-only configurations and port 3000 forwarding. First browser boot should show real DOSBox-X console, not a home screen.
 - js-dos uses browser filesystem APIs requiring **https://** on remote LAN addresses or **http://localhost**. A self-signed cert creates a browser warning and should only be accepted for the known private dev server.
 
 ## Demo 1 — minimal local
@@ -15,7 +15,7 @@
 4. `node --version`; `node hello.js`. Close window before opening repo root.
 
 ## Demo 2 — custom local + real emulator
-1. Open repository root and show `.devcontainer/Dockerfile` and `.devcontainer/devcontainer.json`.
+1. Open repository root, select `.devcontainer/03-custom-docker/devcontainer.json` (or the equivalent default `.devcontainer/devcontainer.json`), and show `.devcontainer/Dockerfile`. Example 2 (`.devcontainer/02-node-app/devcontainer.json`) is the prebuilt Node-only alternative.
 2. Reopen in Container. `postCreateCommand` installs deps and runs tests; `postStartCommand` launches Node server.
 3. Open forwarded **localhost:3000**. DOSBox-X boots immediately to C: prompt.
 4. Click **Upload file**; select destination `C:\\`; choose any text file; upload; in DOS type `DIR` and `TYPE FILENAME.TXT`.

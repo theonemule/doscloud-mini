@@ -1,0 +1,6 @@
+{
+  "name": "01 — Hello World",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+  "remoteUser": "node",
+  "postCreateCommand": "node demos/01-basic/hello.js"
+}

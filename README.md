@@ -13,6 +13,18 @@ This is a **portable developer demonstration**, not a public DOSCloud deployment
 
 The app immediately boots into DOS. There is **no catalog, dashboard, authentication, database, or JavaScript quiz/game renderer**.
 
+## Three Node.js Dev Container configurations
+
+The actual application is **Node.js 22 / JavaScript** (not Go). Open this repository in VS Code or GitHub Codespaces, then select one of these `devcontainer.json` configurations:
+
+| Example | Configuration | Behavior |
+| --- | --- | --- |
+| **1. Hello World** | [`.devcontainer/01-hello-world/devcontainer.json`](.devcontainer/01-hello-world/devcontainer.json) | Base Node image; prints Hello World; no application or ports |
+| **2. Node.js app** | [`.devcontainer/02-node-app/devcontainer.json`](.devcontainer/02-node-app/devcontainer.json) | Base Node image; installs dependencies, tests, starts DOSCloud Mini, forwards port **3000** |
+| **3. Custom Dockerfile** | [`.devcontainer/03-custom-docker/devcontainer.json`](.devcontainer/03-custom-docker/devcontainer.json) | Builds [`.devcontainer/Dockerfile`](.devcontainer/Dockerfile); has Node and npm packages; starts app, forwards port **3000** |
+
+The repository root's `.devcontainer/devcontainer.json` defaults to the same Dockerfile approach as Example 3. The two app configurations automatically run `npm ci && npm test` and launch the server. Use VS Code's **Ports** tab to open port 3000, or visit `http://localhost:3000/` when running locally. Codespaces will provide a forwarded HTTPS URL; keep it **Private**, since this demo has no authentication. See [Dev Container examples](docs/devcontainer-examples.md).
+
 ## Start in a Dev Container
 
 Open the repo root in VS Code and choose **Dev Containers: Reopen in Container**. Port `3000` forwards automatically. Open `http://localhost:3000/` in your local browser. Localhost is a trusted browser context needed by js-dos' virtual filesystem. `npm ci && npm test` validates backend behavior.

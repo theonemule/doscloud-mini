@@ -1,20 +1,18 @@
 {
-  "name": "DOSCloud Mini — Portable DOS Development",
+  "name": "DOSCloud Mini — Custom Dockerfile (default)",
   "build": {
     "dockerfile": "Dockerfile",
     "context": ".."
   },
   "remoteUser": "node",
-  "forwardPorts": [3000],
+  "forwardPorts": [
+    3000
+  ],
   "portsAttributes": {
     "3000": {
       "label": "DOSCloud Mini",
-      "onAutoForward": "openPreview"
-    }
-  },
-  "customizations": {
-    "vscode": {
-      "extensions": ["ms-azuretools.vscode-docker"]
+      "onAutoForward": "openBrowserOnce",
+      "protocol": "http"
     }
   },
   "postCreateCommand": "npm ci && npm test",

@@ -1,14 +1,9 @@
-# Same Node 22 + Dockerfile pattern used in all five talk demos.
+# Custom Dockerfile for the DOSCloud Mini Node.js application.
 FROM mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm
 
+# Preinstall runtime dependencies so the image also works with compose.yaml.
 USER root
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends jq openssl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Compose runtime can resolve server packages even if the bind mount is fresh.
 COPY package.json package-lock.json /opt/doscloud-mini/
-RUN cd /opt/doscloud-mini \
-    && npm ci --omit=dev --no-audit --no-fund
-ENV NODE_PATH=/opt/doscloud-mini/node_modules PORT=3000
+RUN cd /opt/doscloud-mini && npm ci --omit=dev --no-audit --no-fund
+ENV NODE_PATH=/opt/doscloud-mini/node_modules PORT=3000 HOST=0.0.0.0
 USER node
